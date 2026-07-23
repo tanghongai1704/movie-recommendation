@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import MovieSection from './components/MovieSection';
+import { fetchMovies } from './services/api';
 
 const featuredMovie = {
     title: 'Midnight Horizon',
@@ -12,68 +14,28 @@ const featuredMovie = {
         'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=1400&q=80',
 };
 
-const sections = [
-    {
-        title: 'Trending Now',
-        movies: [
-            {
-                title: 'Shadow Protocol',
-                year: '2024',
-                image:
-                    'https://images.unsplash.com/photo-1517602302552-471fe67acf66?auto=format&fit=crop&w=800&q=80',
-            },
-            {
-                title: 'Neon Coast',
-                year: '2023',
-                image:
-                    'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=800&q=80',
-            },
-            {
-                title: 'The Last Signal',
-                year: '2022',
-                image:
-                    'https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&w=800&q=80',
-            },
-            {
-                title: 'Aurora Drift',
-                year: '2024',
-                image:
-                    'https://images.unsplash.com/photo-1517602302552-471fe67acf66?auto=format&fit=crop&w=800&q=80',
-            },
-        ],
-    },
-    {
-        title: 'Top Picks for You',
-        movies: [
-            {
-                title: 'The Velvet Rift',
-                year: '2021',
-                image:
-                    'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=800&q=80',
-            },
-            {
-                title: 'Northbound',
-                year: '2020',
-                image:
-                    'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&q=80',
-            },
-            {
-                title: 'Crimson Tides',
-                year: '2023',
-                image:
-                    'https://images.unsplash.com/photo-1478720568477-152d9b164e26?auto=format&fit=crop&w=800&q=80',
-            },
-            {
-                title: 'Forgotten Echo',
-                year: '2022',
-                image:
-                    'https://images.unsplash.com/photo-1517602302552-471fe67acf66?auto=format&fit=crop&w=800&q=80',
-            },
-        ],
-    },
-];
-
 function App() {
+    const [recommendedMovies, setRecommendedMovies] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        async function loadMovies() {
+            try {
+                setLoading(true);
+                setError('');
+                const data = await fetchMovies();
+                setRecommendedMovies(data);
+            } catch (err) {
+                setError(err.message || 'Unable to load recommendations right now.');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        loadMovies();
+    }, []);
+
     return (
         <div className="min-h-screen bg-[#05070b] text-white">
             <header className="sticky top-0 z-20 border-b border-white/10 bg-[#05070b]/90 backdrop-blur">
@@ -157,9 +119,34 @@ function App() {
                 </section>
 
                 <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-                    {sections.map((section) => (
-                        <MovieSection key={section.title} title={section.title} movies={section.movies} />
-                    ))}
+                    <div className="mb-6 flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-red-400">Recommended For You</p>
+                            <h2 className="mt-2 text-2xl font-semibold text-white">Curated from the backend API</h2>
+                        </div>
+                    </div>
+
+                    {loading ? (
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {[1, 2, 3].map((item) => (
+                                <div key={item} className="animate-pulse rounded-2xl border border-white/10 bg-zinc-900 p-4">
+                                    <div className="h-40 rounded-xl bg-zinc-800" />
+                                    <div className="mt-4 h-4 w-2/3 rounded bg-zinc-800" />
+                                    <div className="mt-2 h-4 w-1/2 rounded bg-zinc-800" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : error ? (
+                        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-sm text-red-200">
+                            {error}
+                        </div>
+                    ) : (
+                        <MovieSection title="Recommended For You" movies={recommendedMovies.map((movie) => ({
+                            title: movie.title,
+                            year: movie.year,
+                            image: movie.image_url || featuredMovie.image,
+                        }))} />
+                    )}
                 </section>
             </main>
         </div>
