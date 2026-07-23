@@ -1,10 +1,12 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 
 class RecommendationItem(BaseModel):
     movie_id: int
     title: str
-    score: float | None = None
+    score: Optional[float] = None
 
 
 class RecommendationResponse(BaseModel):
