@@ -14,12 +14,10 @@ services:
     environment:
       VITE_HOST: 0.0.0.0
     depends_on:
-      - backend
-    networks:
-      - movie-network
-    depends_on:
       backend:
         condition: service_healthy
+    networks:
+      - movie-network
 
   backend:
     build:
