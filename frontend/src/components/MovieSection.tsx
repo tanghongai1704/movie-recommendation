@@ -1,4 +1,16 @@
-function MovieSection({ title, movies }) {
+interface MovieCard {
+    id: number;
+    title: string;
+    year: number;
+    image: string;
+}
+
+interface MovieSectionProps {
+    title: string;
+    movies: MovieCard[];
+}
+
+function MovieSection({ title, movies }: MovieSectionProps) {
     return (
         <section className="mb-8">
             <div className="mb-4 flex items-center justify-between">
@@ -11,7 +23,7 @@ function MovieSection({ title, movies }) {
             <div className="flex gap-4 overflow-x-auto pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {movies.map((movie) => (
                     <article
-                        key={movie.title}
+                        key={movie.id}
                         className="group min-w-[200px] flex-1 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-lg shadow-black/20 transition duration-300 hover:-translate-y-1 hover:border-red-500/40"
                     >
                         <img

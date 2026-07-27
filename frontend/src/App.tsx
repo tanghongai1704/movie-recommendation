@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import MovieSection from './components/MovieSection';
-import { fetchMovies } from './services/api';
+import { movieService } from './services/movieService';
+import type { Movie } from './types/api';
 
 const featuredMovie = {
     title: 'Midnight Horizon',
     year: '2025',
     duration: '2h 08m',
     rating: '8.9',
-    category: 'Sci‑Fi Thriller',
+    category: 'Sci-Fi Thriller',
     description:
         'A brilliant pilot and a rogue AI race through a collapsing city to prevent a global blackout that could erase humanity’s memories.',
     image:
@@ -15,25 +16,41 @@ const featuredMovie = {
 };
 
 function App() {
-    const [recommendedMovies, setRecommendedMovies] = useState([]);
+    const [recommendedMovies, setRecommendedMovies] = useState<Movie[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     useEffect(() => {
+        let active = true;
+
         async function loadMovies() {
             try {
                 setLoading(true);
                 setError('');
-                const data = await fetchMovies();
-                setRecommendedMovies(data);
-            } catch (err) {
-                setError(err.message || 'Unable to load recommendations right now.');
+                const movies = await movieService.getMovies();
+                if (active) {
+                    setRecommendedMovies(movies);
+                }
+            } catch (requestError) {
+                if (active) {
+                    setError(
+                        requestError instanceof Error
+                            ? requestError.message
+                            : 'Unable to load recommendations right now.',
+                    );
+                }
             } finally {
-                setLoading(false);
+                if (active) {
+                    setLoading(false);
+                }
             }
         }
 
-        loadMovies();
+        void loadMovies();
+
+        return () => {
+            active = false;
+        };
     }, []);
 
     return (
@@ -41,12 +58,14 @@ function App() {
             <header className="sticky top-0 z-20 border-b border-white/10 bg-[#05070b]/90 backdrop-blur">
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
                     <div className="flex items-center gap-6">
-                        <div className="text-2xl font-black tracking-[0.35em] text-red-600">STREAMVERSE</div>
+                        <div className="text-2xl font-black tracking-[0.35em] text-red-600">
+                            STREAMVERSE
+                        </div>
                         <nav className="hidden items-center gap-4 text-sm font-medium text-zinc-300 md:flex">
                             <a href="#" className="transition hover:text-white">Home</a>
                             <a href="#" className="transition hover:text-white">Series</a>
                             <a href="#" className="transition hover:text-white">Films</a>
-                            <a href="#" className="transition hover:text-white">New & Popular</a>
+                            <a href="#" className="transition hover:text-white">New &amp; Popular</a>
                         </nav>
                     </div>
 
@@ -121,8 +140,12 @@ function App() {
                 <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
                     <div className="mb-6 flex items-center justify-between">
                         <div>
-                            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-red-400">Recommended For You</p>
-                            <h2 className="mt-2 text-2xl font-semibold text-white">Curated from the backend API</h2>
+                            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-red-400">
+                                Recommended For You
+                            </p>
+                            <h2 className="mt-2 text-2xl font-semibold text-white">
+                                Curated from the backend API
+                            </h2>
                         </div>
                     </div>
 
@@ -141,11 +164,15 @@ function App() {
                             {error}
                         </div>
                     ) : (
-                        <MovieSection title="Recommended For You" movies={recommendedMovies.map((movie) => ({
-                            title: movie.title,
-                            year: movie.year,
-                            image: movie.image_url || featuredMovie.image,
-                        }))} />
+                        <MovieSection
+                            title="Recommended For You"
+                            movies={recommendedMovies.map((movie) => ({
+                                id: movie.id,
+                                title: movie.title,
+                                year: movie.year,
+                                image: movie.image_url || featuredMovie.image,
+                            }))}
+                        />
                     )}
                 </section>
             </main>
