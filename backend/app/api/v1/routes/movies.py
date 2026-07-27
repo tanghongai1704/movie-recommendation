@@ -9,13 +9,15 @@ from app.schemas.movie import MovieResponse
 from app.schemas.recommendation import RecommendationResponse
 from app.services.mock_recommendation_provider import MockRecommendationProvider
 from app.services.movie_service import MovieService
+from app.services.recommendation_service import RecommendationService
 
 router = APIRouter()
 security = HTTPBearer()
 
+recommendation_service = RecommendationService(provider=MockRecommendationProvider())
 movie_service = MovieService(
     repository=InMemoryMovieRepository(),
-    recommendation_provider=MockRecommendationProvider(),
+    recommendation_service=recommendation_service,
 )
 
 
