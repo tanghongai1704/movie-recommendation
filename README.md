@@ -64,6 +64,10 @@ project-root/
 └── README.md            # project overview
 ```
 
+## API contract
+
+A stable API contract for the current frontend/backend boundary is documented in [docs/api/api-contract.md](docs/api/api-contract.md).
+
 ## Development flow
 
 ### Frontend
