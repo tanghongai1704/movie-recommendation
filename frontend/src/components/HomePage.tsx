@@ -11,6 +11,7 @@ interface HomePageProps {
     interactionError: string | null;
     onSignIn: () => void;
     onLogout: () => void;
+    onMovieClick: (movieId: number) => void;
     onWatch: (movieId: number) => void;
     onRate: (movieId: number, rating: number) => void;
 }
@@ -37,6 +38,7 @@ function HomePage({
     interactionError,
     onSignIn,
     onLogout,
+    onMovieClick,
     onWatch,
     onRate,
 }: HomePageProps) {
@@ -190,6 +192,7 @@ function HomePage({
                             title="Recommended For You"
                             movies={movies}
                             fallbackImage={featuredMovie.image}
+                            onMovieClick={onMovieClick}
                             onWatch={onWatch}
                             onRate={onRate}
                         />

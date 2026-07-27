@@ -61,6 +61,7 @@ function App() {
             interactionError={movieActions.error}
             onSignIn={() => navigate('login')}
             onLogout={auth.logout}
+            onMovieClick={movieActions.clickMovie}
             onWatch={movieActions.watchMovie}
             onRate={movieActions.rateMovie}
         />

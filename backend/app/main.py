@@ -12,6 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from app.api.v1.routes import movies as movie_routes
 from app.api.v1.routes import auth as auth_routes
+from app.api.v1.routes import interactions as interaction_routes
 
 
 def configure_logging() -> None:
@@ -46,6 +47,7 @@ app.add_middleware(
 
 app.include_router(auth_routes.router, prefix="/api/v1", tags=["auth"])
 app.include_router(movie_routes.router, prefix="/api/v1", tags=["movies"])
+app.include_router(interaction_routes.router, prefix="/api/v1", tags=["interactions"])
 
 
 @app.get("/health")

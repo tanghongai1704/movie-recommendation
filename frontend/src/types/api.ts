@@ -33,7 +33,7 @@ export interface MovieListParams {
     sort_by?: MovieSortField;
 }
 
-export type InteractionEventType = 'view' | 'like' | 'dislike' | 'rating' | 'watchlist';
+export type InteractionEventType = 'click' | 'watch' | 'rating';
 
 export interface CreateInteractionRequest {
     event_type: InteractionEventType;

@@ -4,6 +4,7 @@ interface MovieSectionProps {
     title: string;
     movies: Movie[];
     fallbackImage: string;
+    onMovieClick: (movieId: number) => void;
     onWatch: (movieId: number) => void;
     onRate: (movieId: number, rating: number) => void;
 }
@@ -12,6 +13,7 @@ function MovieSection({
     title,
     movies,
     fallbackImage,
+    onMovieClick,
     onWatch,
     onRate,
 }: MovieSectionProps) {
@@ -30,11 +32,18 @@ function MovieSection({
                         key={movie.id}
                         className="group min-w-[200px] flex-1 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-lg shadow-black/20 transition duration-300 hover:-translate-y-1 hover:border-red-500/40"
                     >
-                        <img
-                            src={movie.image_url || fallbackImage}
-                            alt={movie.title}
-                            className="h-56 w-full object-cover transition duration-300 group-hover:scale-105"
-                        />
+                        <button
+                            type="button"
+                            onClick={() => onMovieClick(movie.id)}
+                            className="block w-full overflow-hidden"
+                            aria-label={`View details for ${movie.title}`}
+                        >
+                            <img
+                                src={movie.image_url || fallbackImage}
+                                alt={movie.title}
+                                className="h-56 w-full object-cover transition duration-300 group-hover:scale-105"
+                            />
+                        </button>
                         <div className="p-4">
                             <div className="flex items-center justify-between">
                                 <h3 className="truncate text-sm font-semibold text-white">{movie.title}</h3>

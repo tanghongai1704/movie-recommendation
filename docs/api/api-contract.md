@@ -209,7 +209,7 @@ Common response envelope:
 
 ```json
 {
-  "event_type": "like",
+  "event_type": "rating",
   "movie_id": 1,
   "rating": 4.5,
   "metadata": {
@@ -219,13 +219,17 @@ Common response envelope:
 ```
 
 - Query parameters: None
+- Supported `event_type` values:
+  - `click`
+  - `watch`
+  - `rating` (requires `rating` from `0.5` to `5.0`)
 - Success response `201 Created`:
 
 ```json
 {
   "event_id": "evt_001",
   "user_id": 1,
-  "event_type": "like",
+  "event_type": "rating",
   "movie_id": 1,
   "rating": 4.5,
   "created_at": "2026-07-27T12:00:00Z"

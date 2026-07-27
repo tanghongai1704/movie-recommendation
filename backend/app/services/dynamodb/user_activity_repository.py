@@ -1,12 +1,24 @@
 from __future__ import annotations
 
 import logging
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 import boto3
+from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError, NoCredentialsError, PartialCredentialsError
 
 logger = logging.getLogger(__name__)
+
+
+def _to_dynamodb_value(value: Any) -> Any:
+    if isinstance(value, float):
+        return Decimal(str(value))
+    if isinstance(value, dict):
+        return {key: _to_dynamodb_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_to_dynamodb_value(item) for item in value]
+    return value
 
 
 class DynamoDBRepositoryError(Exception):
@@ -89,15 +101,26 @@ class UserInteractionsRepository(BaseDynamoDBRepository):
 
     def put_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            self._table.put_item(Item=item)
+            self._table.put_item(Item=_to_dynamodb_value(item))
             return item
         except Exception as exc:
             self._handle_error(exc)
 
     def list_items(self, user_id: Any) -> List[Dict[str, Any]]:
         try:
-            response = self._table.query(KeyConditionExpression="user_id = :uid", ExpressionAttributeValues={":uid": user_id})
-            return response.get("Items", [])
+            items: List[Dict[str, Any]] = []
+            query_options: Dict[str, Any] = {
+                "KeyConditionExpression": Key("user_id").eq(str(user_id)),
+            }
+
+            while True:
+                response = self._table.query(**query_options)
+                items.extend(response.get("Items", []))
+
+                last_key = response.get("LastEvaluatedKey")
+                if not last_key:
+                    return items
+                query_options["ExclusiveStartKey"] = last_key
         except Exception as exc:
             self._handle_error(exc)
 

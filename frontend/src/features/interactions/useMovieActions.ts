@@ -15,10 +15,21 @@ export function useMovieActions(userState: AuthUserState, navigate: Navigate) {
         onAuthenticationRequired: handleAuthenticationRequired,
     });
 
+    const clickMovie = useCallback(
+        (movieId: number): void => {
+            void interactionState.recordInteraction({
+                event_type: 'click',
+                movie_id: movieId,
+                metadata: { source: 'ui' },
+            });
+        },
+        [interactionState.recordInteraction],
+    );
+
     const watchMovie = useCallback(
         (movieId: number): void => {
             void interactionState.recordInteraction({
-                event_type: 'view',
+                event_type: 'watch',
                 movie_id: movieId,
                 metadata: { source: 'ui' },
             });
@@ -40,6 +51,7 @@ export function useMovieActions(userState: AuthUserState, navigate: Navigate) {
 
     return {
         ...interactionState,
+        clickMovie,
         watchMovie,
         rateMovie,
     };
