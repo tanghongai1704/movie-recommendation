@@ -1,16 +1,12 @@
-interface MovieCard {
-    id: number;
-    title: string;
-    year: number;
-    image: string;
-}
+import type { Movie } from '../types/api';
 
 interface MovieSectionProps {
     title: string;
-    movies: MovieCard[];
+    movies: Movie[];
+    fallbackImage: string;
 }
 
-function MovieSection({ title, movies }: MovieSectionProps) {
+function MovieSection({ title, movies, fallbackImage }: MovieSectionProps) {
     return (
         <section className="mb-8">
             <div className="mb-4 flex items-center justify-between">
@@ -27,7 +23,7 @@ function MovieSection({ title, movies }: MovieSectionProps) {
                         className="group min-w-[200px] flex-1 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-lg shadow-black/20 transition duration-300 hover:-translate-y-1 hover:border-red-500/40"
                     >
                         <img
-                            src={movie.image}
+                            src={movie.image_url || fallbackImage}
                             alt={movie.title}
                             className="h-56 w-full object-cover transition duration-300 group-hover:scale-105"
                         />

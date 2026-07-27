@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react';
 import MovieSection from './components/MovieSection';
-import { movieService } from './services/movieService';
-import type { Movie } from './types/api';
+import { useMovies } from './features/movies/useMovies';
 
 const featuredMovie = {
     title: 'Midnight Horizon',
@@ -16,42 +14,7 @@ const featuredMovie = {
 };
 
 function App() {
-    const [recommendedMovies, setRecommendedMovies] = useState<Movie[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-
-    useEffect(() => {
-        let active = true;
-
-        async function loadMovies() {
-            try {
-                setLoading(true);
-                setError('');
-                const movies = await movieService.getMovies();
-                if (active) {
-                    setRecommendedMovies(movies);
-                }
-            } catch (requestError) {
-                if (active) {
-                    setError(
-                        requestError instanceof Error
-                            ? requestError.message
-                            : 'Unable to load recommendations right now.',
-                    );
-                }
-            } finally {
-                if (active) {
-                    setLoading(false);
-                }
-            }
-        }
-
-        void loadMovies();
-
-        return () => {
-            active = false;
-        };
-    }, []);
+    const { movies, isLoading, error } = useMovies();
 
     return (
         <div className="min-h-screen bg-[#05070b] text-white">
@@ -149,7 +112,7 @@ function App() {
                         </div>
                     </div>
 
-                    {loading ? (
+                    {isLoading ? (
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             {[1, 2, 3].map((item) => (
                                 <div key={item} className="animate-pulse rounded-2xl border border-white/10 bg-zinc-900 p-4">
@@ -166,12 +129,8 @@ function App() {
                     ) : (
                         <MovieSection
                             title="Recommended For You"
-                            movies={recommendedMovies.map((movie) => ({
-                                id: movie.id,
-                                title: movie.title,
-                                year: movie.year,
-                                image: movie.image_url || featuredMovie.image,
-                            }))}
+                            movies={movies}
+                            fallbackImage={featuredMovie.image}
                         />
                     )}
                 </section>
