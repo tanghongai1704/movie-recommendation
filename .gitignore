@@ -1,0 +1,160 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+env*/
+.venv*/
+
+# =========================
+# Node.js / React / Vite
+# =========================
+node_modules/
+frontend/node_modules/
+**/node_modules/
+
+# Build output
+/dist/
+/build/
+frontend/dist/
+frontend/build/
+
+# Vite cache
+.vite/
+frontend/.vite/
+
+# Package manager caches
+.pnpm-store/
+.npm/
+
+# Frontend coverage
+coverage/
+frontend/coverage/
+
+# =========================
+# FastAPI / Python app runtime
+# =========================
+*.log
+*.pid
+*.sqlite3
+*.db
+
+# =========================
+# ML / data science
+# =========================
+ml/data/tmp/
+ml/data/cache/
+ml/models/*.pkl
+ml/models/*.pt
+ml/models/*.bin
+ml/models/*.onnx
+ml/models/checkpoints/
+ml/models/artifacts/
+ml/models/**/*.tmp
+ml/training/checkpoints/
+ml/training/runs/
+ml/training/output/
+ml/notebooks/.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+*.ipynb_checkpoints/
+
+# Temporary datasets
+*.csv.tmp
+*.parquet
+*.feather
+*.h5
+*.npy
+*.npz
+*.jsonl
+*.tsv.tmp
+
+# =========================
+# AWS
+# =========================
+.aws/
+*.pem
+*.ppk
+*.key
+*.crt
+*.csr
+credentials
+credential
+config
+
+authorization
+
+# =========================
+# Docker
+# =========================
+.docker/
+*.tar
+docker-compose.override.yml
+
+# =========================
+# IDE / editors
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+
+# =========================
+# Environment files
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Temporary files
+# =========================
+/tmp/
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+
+# =========================
+# Test output
+# =========================
+.test-results/
+playwright-report/
+
+# =========================
+# Generated documentation / local artifacts
+# =========================
+site/
+docs/_build/
+
+# =========================
+# Local runtime files
+# =========================
+*.local
