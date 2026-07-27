@@ -4,9 +4,17 @@ interface MovieSectionProps {
     title: string;
     movies: Movie[];
     fallbackImage: string;
+    onWatch: (movieId: number) => void;
+    onRate: (movieId: number, rating: number) => void;
 }
 
-function MovieSection({ title, movies, fallbackImage }: MovieSectionProps) {
+function MovieSection({
+    title,
+    movies,
+    fallbackImage,
+    onWatch,
+    onRate,
+}: MovieSectionProps) {
     return (
         <section className="mb-8">
             <div className="mb-4 flex items-center justify-between">
@@ -35,6 +43,20 @@ function MovieSection({ title, movies, fallbackImage }: MovieSectionProps) {
                                 </span>
                             </div>
                             <p className="mt-2 text-sm text-zinc-400">Award-winning drama • 4K</p>
+                            <div className="mt-4 flex gap-2">
+                                <button
+                                    onClick={() => onWatch(movie.id)}
+                                    className="flex-1 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-zinc-950"
+                                >
+                                    Watch
+                                </button>
+                                <button
+                                    onClick={() => onRate(movie.id, 5)}
+                                    className="flex-1 rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-white"
+                                >
+                                    ★ Rate
+                                </button>
+                            </div>
                         </div>
                     </article>
                 ))}

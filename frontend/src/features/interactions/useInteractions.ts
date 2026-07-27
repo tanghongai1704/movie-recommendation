@@ -15,11 +15,24 @@ const initialState: InteractionsState = {
     error: null,
 };
 
-export function useInteractions() {
+interface UseInteractionsOptions {
+    canCreate: boolean;
+    onAuthenticationRequired: () => void;
+}
+
+export function useInteractions({
+    canCreate,
+    onAuthenticationRequired,
+}: UseInteractionsOptions) {
     const [state, setState] = useState<InteractionsState>(initialState);
 
     const recordInteraction = useCallback(
         async (payload: CreateInteractionRequest): Promise<Interaction | null> => {
+            if (!canCreate) {
+                onAuthenticationRequired();
+                return null;
+            }
+
             setState((current) => ({ ...current, status: 'loading', error: null }));
 
             try {
@@ -39,7 +52,7 @@ export function useInteractions() {
                 return null;
             }
         },
-        [],
+        [canCreate, onAuthenticationRequired],
     );
 
     const clearInteractions = useCallback((): void => {

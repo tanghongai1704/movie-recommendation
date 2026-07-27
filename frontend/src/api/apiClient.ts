@@ -7,6 +7,7 @@ interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
     body?: unknown;
     query?: QueryParams;
     requiresAuth?: boolean;
+    allowGuest?: boolean;
 }
 
 const API_BASE_URL = (
@@ -27,8 +28,11 @@ export class ApiError extends Error {
 }
 
 class ApiClient {
-    private accessToken: string | null =
-        window.localStorage.getItem(TOKEN_STORAGE_KEY) || DEFAULT_DEMO_TOKEN;
+    private accessToken: string | null = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+
+    hasAuthenticatedSession(): boolean {
+        return this.accessToken !== null;
+    }
 
     setAccessToken(token: string): void {
         this.accessToken = token;
@@ -81,7 +85,14 @@ class ApiClient {
 
     private async request<TResponse>(
         path: string,
-        { body, query, requiresAuth = true, headers, ...init }: ApiRequestOptions,
+        {
+            body,
+            query,
+            requiresAuth = true,
+            allowGuest = false,
+            headers,
+            ...init
+        }: ApiRequestOptions,
     ): Promise<TResponse> {
         const requestHeaders = new Headers(headers);
         requestHeaders.set('Accept', 'application/json');
@@ -90,8 +101,12 @@ class ApiClient {
             requestHeaders.set('Content-Type', 'application/json');
         }
 
-        if (requiresAuth && this.accessToken) {
-            requestHeaders.set('Authorization', `Bearer ${this.accessToken}`);
+        if (requiresAuth) {
+            const requestToken = this.accessToken || (allowGuest ? DEFAULT_DEMO_TOKEN : null);
+            if (!requestToken) {
+                throw new ApiError('Authentication is required for this action.', 401);
+            }
+            requestHeaders.set('Authorization', `Bearer ${requestToken}`);
         }
 
         const response = await fetch(this.buildUrl(path, query), {

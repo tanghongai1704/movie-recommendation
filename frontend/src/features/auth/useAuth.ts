@@ -1,35 +1,58 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { authService } from '../../services/authService';
 import type { LoginRequest, UserProfile } from '../../types/api';
 import { getErrorMessage, type AsyncStatus } from '../../state/asyncState';
 
+export type AuthUserState = 'guest' | 'first-login' | 'returning-user';
+
 interface AuthState {
     user: UserProfile | null;
+    userState: AuthUserState;
     status: AsyncStatus;
     error: string | null;
 }
 
-const initialState: AuthState = {
+const guestState: AuthState = {
     user: null,
-    status: 'idle',
+    userState: 'guest',
+    status: 'success',
     error: null,
 };
 
+function getAuthenticatedState(user: UserProfile): AuthState {
+    const onboardingCompleted = authService.isOnboardingCompleted(user.username);
+
+    return {
+        user,
+        userState: onboardingCompleted ? 'returning-user' : 'first-login',
+        status: 'success',
+        error: null,
+    };
+}
+
 export function useAuth() {
-    const [state, setState] = useState<AuthState>(initialState);
+    const [state, setState] = useState<AuthState>({
+        ...guestState,
+        status: 'idle',
+    });
 
     const loadCurrentUser = useCallback(async (): Promise<UserProfile | null> => {
+        if (!authService.hasAuthenticatedSession()) {
+            setState(guestState);
+            return null;
+        }
+
         setState((current) => ({ ...current, status: 'loading', error: null }));
 
         try {
             const user = await authService.getCurrentUser();
-            setState({ user, status: 'success', error: null });
+            setState(getAuthenticatedState(user));
             return user;
         } catch (error) {
+            authService.logout();
             setState({
-                user: null,
-                status: 'error',
-                error: getErrorMessage(error, 'Unable to load the current user.'),
+                ...guestState,
+                error: getErrorMessage(error, 'Your session has expired.'),
             });
             return null;
         }
@@ -41,12 +64,12 @@ export function useAuth() {
         try {
             await authService.login(credentials);
             const user = await authService.getCurrentUser();
-            setState({ user, status: 'success', error: null });
+            setState(getAuthenticatedState(user));
             return user;
         } catch (error) {
             authService.logout();
             setState({
-                user: null,
+                ...guestState,
                 status: 'error',
                 error: getErrorMessage(error, 'Unable to sign in.'),
             });
@@ -54,16 +77,38 @@ export function useAuth() {
         }
     }, []);
 
+    const completeOnboarding = useCallback((): void => {
+        setState((current) => {
+            if (!current.user) {
+                return current;
+            }
+
+            authService.completeOnboarding(current.user.username);
+            return {
+                ...current,
+                userState: 'returning-user',
+                status: 'success',
+                error: null,
+            };
+        });
+    }, []);
+
     const logout = useCallback((): void => {
         authService.logout();
-        setState(initialState);
+        setState(guestState);
     }, []);
+
+    useEffect(() => {
+        void loadCurrentUser();
+    }, [loadCurrentUser]);
 
     return {
         ...state,
-        isAuthenticated: state.user !== null,
+        isAuthenticated: state.userState !== 'guest',
+        canCreateInteractions: state.userState === 'returning-user',
         login,
         logout,
+        completeOnboarding,
         loadCurrentUser,
     };
 }
