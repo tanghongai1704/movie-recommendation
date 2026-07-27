@@ -7,6 +7,7 @@ The backend is a FastAPI service that exposes movie and recommendation endpoints
 - serve the main API routes under `/api/v1`
 - handle authentication placeholder routes
 - provide movie and recommendation responses
+- serve valid recommendation-cache entries before invoking the recommendation provider
 - record click, watch, and rating behavior in DynamoDB for downstream ML consumers
 - provide a light service/repository abstraction for future persistence
 

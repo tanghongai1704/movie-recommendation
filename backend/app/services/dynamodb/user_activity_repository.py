@@ -154,14 +154,19 @@ class RecommendationCacheRepository(BaseDynamoDBRepository):
 
     def put_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            self._table.put_item(Item=item)
+            self._table.put_item(Item=_to_dynamodb_value(item))
             return item
         except Exception as exc:
             self._handle_error(exc)
 
-    def get_item(self, key: Any) -> Optional[Dict[str, Any]]:
+    def get_item(self, user_id: Any, scenario: str) -> Optional[Dict[str, Any]]:
         try:
-            response = self._table.get_item(Key={"cache_key": key})
+            response = self._table.get_item(
+                Key={
+                    "user_id": str(user_id),
+                    "scenario": scenario,
+                }
+            )
             return response.get("Item")
         except Exception as exc:
             self._handle_error(exc)

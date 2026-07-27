@@ -12,6 +12,13 @@ class Settings:
         "AWS_DYNAMODB_TABLE_INTERACTIONS",
         "movie-recommendation-interactions",
     )
+    AWS_DYNAMODB_TABLE_RECOMMENDATION_CACHE = os.getenv(
+        "AWS_DYNAMODB_TABLE_RECOMMENDATION_CACHE",
+        "movie-recommendation-cache",
+    )
+    RECOMMENDATION_CACHE_TTL_SECONDS = int(
+        os.getenv("RECOMMENDATION_CACHE_TTL_SECONDS", "300")
+    )
 
 
 settings = Settings()

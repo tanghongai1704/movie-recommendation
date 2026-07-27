@@ -10,11 +10,19 @@ from app.schemas.recommendation import RecommendationResponse
 from app.services.mock_recommendation_provider import MockRecommendationProvider
 from app.services.movie_service import MovieService
 from app.services.recommendation_service import RecommendationService
+from app.services.dynamodb.user_activity_repository import RecommendationCacheRepository
 
 router = APIRouter()
 security = HTTPBearer()
 
-recommendation_service = RecommendationService(provider=MockRecommendationProvider())
+recommendation_service = RecommendationService(
+    provider=MockRecommendationProvider(),
+    cache=RecommendationCacheRepository(
+        table_name=settings.AWS_DYNAMODB_TABLE_RECOMMENDATION_CACHE,
+        region_name=settings.AWS_REGION,
+    ),
+    cache_ttl_seconds=settings.RECOMMENDATION_CACHE_TTL_SECONDS,
+)
 movie_service = MovieService(
     repository=InMemoryMovieRepository(),
     recommendation_service=recommendation_service,
