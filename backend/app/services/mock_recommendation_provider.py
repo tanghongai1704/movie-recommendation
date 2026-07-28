@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from app.repositories.movie_repository import InMemoryMovieRepository
 from app.schemas.movie import MovieResponse
@@ -9,6 +9,7 @@ class RecommendationMovie(MovieResponse):
     """Movie payload enriched with a recommendation score for the API contract."""
 
     score: Optional[float] = None
+    reason_code: Optional[str] = None
 
 
 class MockRecommendationProvider(RecommendationProvider):
@@ -17,19 +18,17 @@ class MockRecommendationProvider(RecommendationProvider):
     def __init__(self, repository: Optional[InMemoryMovieRepository] = None) -> None:
         self._repository = repository or InMemoryMovieRepository()
 
-    def get_recommendations(self, user_id: Optional[int] = None) -> List[MovieResponse]:
+    def get_recommendations(
+        self,
+        user_id: Optional[str] = None,
+    ) -> list[MovieResponse]:
         movies = self._repository.get_all()
         scores = [8.9, 8.4, 7.9]
         return [
             RecommendationMovie(
-                id=movie.id,
-                title=movie.title,
-                genre=movie.genre,
-                year=movie.year,
-                rating=movie.rating,
-                description=movie.description,
-                image_url=movie.image_url,
+                **movie.model_dump(),
                 score=scores[index] if index < len(scores) else None,
+                reason_code="mock_rank",
             )
             for index, movie in enumerate(movies)
         ]

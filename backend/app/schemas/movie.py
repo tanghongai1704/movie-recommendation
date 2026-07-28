@@ -1,11 +1,5 @@
-from pydantic import BaseModel
+from app.models.movie import Movie
 
 
-class MovieResponse(BaseModel):
-    id: int
-    title: str
-    genre: str
-    year: int
-    rating: float
-    description: str
-    image_url: str
+class MovieResponse(Movie):
+    """API movie payload using the canonical Movies field names."""

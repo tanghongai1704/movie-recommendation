@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Optional
 
 from app.schemas.movie import MovieResponse
 
@@ -13,5 +13,8 @@ class RecommendationProvider(ABC):
     """
 
     @abstractmethod
-    def get_recommendations(self, user_id: Optional[int] = None) -> List[MovieResponse]:
+    def get_recommendations(
+        self,
+        user_id: Optional[str] = None,
+    ) -> list[MovieResponse]:
         raise NotImplementedError

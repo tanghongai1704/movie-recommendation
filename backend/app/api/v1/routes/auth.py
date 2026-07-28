@@ -1,27 +1,16 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
+
+from app.schemas.auth import (
+    AuthenticatedUserResponse,
+    LoginRequest,
+    TokenResponse,
+)
 
 security = HTTPBearer()
 router = APIRouter()
-
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
-
-class UserPayload(BaseModel):
-    username: str
-    role: str = "user"
 
 
 def create_access_token(username: str) -> str:
@@ -43,11 +32,13 @@ def login(payload: LoginRequest) -> TokenResponse:
     return TokenResponse(access_token=token)
 
 
-@router.get("/auth/me")
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict[str, Any]:
+@router.get("/auth/me", response_model=AuthenticatedUserResponse)
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> AuthenticatedUserResponse:
     token = credentials.credentials
     if not token.startswith("dummy-token-for-"):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
     username = token.replace("dummy-token-for-", "")
-    return {"username": username, "role": "user"}
+    return AuthenticatedUserResponse(user_id="1", username=username)

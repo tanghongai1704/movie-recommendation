@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
-from app.schemas.interaction import InteractionCreate, InteractionResponse
-from app.services.dynamodb.user_activity_repository import (
+from app.repositories.dynamodb_repository import (
     DynamoDBRepositoryError,
     UserInteractionsRepository,
 )
+from app.schemas.interaction import InteractionCreate, InteractionResponse
 from app.services.interaction_service import InteractionService
 
 router = APIRouter()
@@ -17,7 +17,7 @@ security = HTTPBearer()
 
 @dataclass(frozen=True)
 class InteractionUser:
-    user_id: int
+    user_id: str
     username: str
 
 
@@ -51,7 +51,7 @@ def get_interaction_user(
         )
 
     # The current demo authentication contract exposes one application user.
-    return InteractionUser(user_id=1, username=username)
+    return InteractionUser(user_id="1", username=username)
 
 
 @router.post(

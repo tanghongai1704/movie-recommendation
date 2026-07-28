@@ -1,22 +1,36 @@
 from datetime import datetime, timezone
 from time import time
-from typing import Any, Callable, List, Optional, Protocol
+from typing import Callable, Optional, Protocol
 
+from app.models.recommendation_cache import (
+    RecommendationCache,
+    RecommendationCacheItem,
+)
+from app.repositories.movie_repository import MovieRepository
 from app.schemas.movie import MovieResponse
-from app.schemas.recommendation import RecommendationResponse
+from app.schemas.recommendation import RecommendationItem, RecommendationResponse
 from app.services.recommendation_provider import RecommendationProvider
 
 
-class RecommendationCache(Protocol):
-    def get_item(self, user_id: Any, scenario: str) -> Optional[dict[str, Any]]:
+class RecommendationCacheStore(Protocol):
+    """Persistence boundary used by RecommendationService."""
+
+    def get_item(
+        self,
+        user_id: str,
+        scenario: str,
+    ) -> Optional[RecommendationCache]:
         ...
 
-    def put_item(self, item: dict[str, Any]) -> dict[str, Any]:
+    def put_item(self, item: RecommendationCache) -> RecommendationCache:
         ...
 
 
 class CachedRecommendationMovie(MovieResponse):
-    score: Optional[float] = None
+    """Movie metadata enriched with fields stored in RecommendationCache.items."""
+
+    score: float  # Ranking score restored from the normalized cache item.
+    reason_code: str  # Explanation code restored from the normalized cache item.
 
 
 class RecommendationService:
@@ -25,10 +39,12 @@ class RecommendationService:
     def __init__(
         self,
         provider: RecommendationProvider,
-        cache: RecommendationCache,
+        cache: RecommendationCacheStore,
+        movie_repository: MovieRepository,
         *,
         cache_ttl_seconds: int = 300,
         scenario: str = "default",
+        model_version: str = "mock-v1",
         clock: Callable[[], float] = time,
     ) -> None:
         if cache_ttl_seconds <= 0:
@@ -36,15 +52,20 @@ class RecommendationService:
 
         self._provider = provider
         self._cache = cache
+        self._movie_repository = movie_repository
         self._cache_ttl_seconds = cache_ttl_seconds
         self._scenario = scenario
+        self._model_version = model_version
         self._clock = clock
 
-    def get_recommendations(self, user_id: Optional[int] = None) -> List[MovieResponse]:
+    def get_recommendations(
+        self,
+        user_id: Optional[str] = None,
+    ) -> list[MovieResponse]:
         if user_id is None:
             return self._provider.get_recommendations(user_id=None)
-        if user_id <= 0:
-            raise ValueError("user_id must be a positive integer")
+        if not user_id:
+            raise ValueError("user_id must not be empty")
 
         cached_movies = self._get_valid_cached_movies(user_id)
         if cached_movies is not None:
@@ -54,70 +75,72 @@ class RecommendationService:
         self._save_to_cache(user_id=user_id, movies=movies)
         return movies
 
-    def get_recommendation_payload(self, user_id: int, limit: int = 10) -> RecommendationResponse:
-        if user_id <= 0:
-            raise ValueError("user_id must be a positive integer")
+    def get_recommendation_payload(
+        self,
+        user_id: str,
+        limit: int = 10,
+    ) -> RecommendationResponse:
+        if not user_id:
+            raise ValueError("user_id must not be empty")
         if limit <= 0:
             raise ValueError("limit must be a positive integer")
 
-        items = self.get_recommendations(user_id=user_id)[:limit]
+        movies = self.get_recommendations(user_id=user_id)[:limit]
         return RecommendationResponse(
             user_id=user_id,
             recommendations=[
-                {
-                    "movie_id": item.id,
-                    "title": item.title,
-                    "score": getattr(item, "score", None),
-                }
-                for item in items
+                RecommendationItem.model_validate(
+                    movie.model_dump(),
+                )
+                for movie in movies
             ],
         )
 
     def _get_valid_cached_movies(
         self,
-        user_id: int,
-    ) -> Optional[List[CachedRecommendationMovie]]:
+        user_id: str,
+    ) -> Optional[list[CachedRecommendationMovie]]:
         cached = self._cache.get_item(user_id=user_id, scenario=self._scenario)
-        if not cached:
+        if cached is None or cached.expire_at <= self._clock():
             return None
 
-        try:
-            expires_at = float(cached["expires_at"])
-            movie_ids = [int(movie_id) for movie_id in cached["movie_ids"]]
-            snapshots = cached["movies"]
-            if not isinstance(snapshots, list):
+        movies: list[CachedRecommendationMovie] = []
+        for item in cached.items:
+            movie = self._movie_repository.get_by_id(item.movie_id)
+            if movie is None:
                 return None
-
-            movies = [
-                CachedRecommendationMovie.model_validate(snapshot)
-                for snapshot in snapshots
-            ]
-        except (KeyError, TypeError, ValueError):
-            return None
-
-        if expires_at <= self._clock():
-            return None
-        if [movie.id for movie in movies] != movie_ids:
-            return None
+            movies.append(
+                CachedRecommendationMovie(
+                    **movie.model_dump(),
+                    score=item.score,
+                    reason_code=item.reason_code,
+                )
+            )
         return movies
 
-    def _save_to_cache(self, user_id: int, movies: List[MovieResponse]) -> None:
+    def _save_to_cache(
+        self,
+        user_id: str,
+        movies: list[MovieResponse],
+    ) -> None:
         now = self._clock()
-        expires_at = int(now) + self._cache_ttl_seconds
-        cached_at = datetime.fromtimestamp(now, tz=timezone.utc).isoformat().replace(
-            "+00:00",
-            "Z",
-        )
-
+        items = [
+            RecommendationCacheItem(
+                movie_id=movie.movie_id,
+                score=float(getattr(movie, "score", 0.0) or 0.0),
+                reason_code=str(
+                    getattr(movie, "reason_code", None) or "provider_default"
+                ),
+            )
+            for movie in movies
+        ]
         self._cache.put_item(
-            {
-                "user_id": str(user_id),
-                "scenario": self._scenario,
-                "movie_ids": [movie.id for movie in movies],
-                "movies": [movie.model_dump(mode="json") for movie in movies],
-                "cached_at": cached_at,
-                "expires_at": expires_at,
-                "provider": type(self._provider).__name__,
-                "schema_version": 1,
-            }
+            RecommendationCache(
+                user_id=user_id,
+                scenario=self._scenario,
+                items=items,
+                model_version=self._model_version,
+                generated_at=datetime.fromtimestamp(now, tz=timezone.utc),
+                expire_at=int(now) + self._cache_ttl_seconds,
+            )
         )
