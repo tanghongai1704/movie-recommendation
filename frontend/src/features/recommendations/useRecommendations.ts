@@ -8,7 +8,7 @@ import type {
 import { getErrorMessage, type AsyncStatus } from '../../state/asyncState';
 
 interface RecommendationsState {
-    userId: number | null;
+    userId: string | null;
     recommendations: RecommendationItem[];
     status: AsyncStatus;
     error: string | null;
@@ -25,11 +25,17 @@ export function useRecommendations() {
     const [state, setState] = useState<RecommendationsState>(initialState);
 
     const loadRecommendations = useCallback(
-        async (params: RecommendationParams = {}): Promise<RecommendationResponse | null> => {
+        async (
+            userId: string,
+            params: RecommendationParams = {},
+        ): Promise<RecommendationResponse | null> => {
             setState((current) => ({ ...current, status: 'loading', error: null }));
 
             try {
-                const response = await recommendationService.getRecommendations(params);
+                const response = await recommendationService.getRecommendations(
+                    userId,
+                    params,
+                );
                 setState({
                     userId: response.user_id,
                     recommendations: response.recommendations,

@@ -115,8 +115,9 @@ Movie metadata is enriched from Movies after a cache read.
 | `RecommendationItem` | `MovieResponse` enriched with score and reason code |
 | `RecommendationResponse` | User-scoped ordered recommendation envelope |
 
-The existing `/auth/me` response also contains a derived `role` field for
-backward compatibility. `role` is not stored in Users.
+User responses contain a derived `user_state` field. It is `first_login` when
+onboarding is incomplete and `returning_user` after completion. The value is not
+stored separately in Users.
 
 ## Field mapping
 

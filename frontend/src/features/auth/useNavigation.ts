@@ -1,19 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
 
-export type AppRoute = 'home' | 'login' | 'onboarding';
+export type AppRoute = 'home' | 'login' | 'register' | 'onboarding' | 'profile';
 
 const routePaths: Record<AppRoute, string> = {
     home: '/',
     login: '/login',
+    register: '/register',
     onboarding: '/onboarding',
+    profile: '/profile',
 };
 
 function getRoute(pathname: string): AppRoute {
     if (pathname === routePaths.login) {
         return 'login';
     }
+    if (pathname === routePaths.register) {
+        return 'register';
+    }
     if (pathname === routePaths.onboarding) {
         return 'onboarding';
+    }
+    if (pathname === routePaths.profile) {
+        return 'profile';
     }
     return 'home';
 }

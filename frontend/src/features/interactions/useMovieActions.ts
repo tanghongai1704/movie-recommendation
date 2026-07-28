@@ -7,43 +7,40 @@ type Navigate = (route: AppRoute, replace?: boolean) => void;
 
 export function useMovieActions(userState: AuthUserState, navigate: Navigate) {
     const handleAuthenticationRequired = useCallback((): void => {
-        navigate(userState === 'guest' ? 'login' : 'onboarding');
-    }, [navigate, userState]);
+        navigate('login');
+    }, [navigate]);
 
     const interactionState = useInteractions({
-        canCreate: userState === 'returning-user',
+        canCreate: userState !== 'guest',
         onAuthenticationRequired: handleAuthenticationRequired,
     });
 
     const clickMovie = useCallback(
-        (movieId: number): void => {
+        (movieId: string): void => {
             void interactionState.recordInteraction({
-                event_type: 'click',
+                interaction_type: 'click',
                 movie_id: movieId,
-                metadata: { source: 'ui' },
             });
         },
         [interactionState.recordInteraction],
     );
 
     const watchMovie = useCallback(
-        (movieId: number): void => {
+        (movieId: string): void => {
             void interactionState.recordInteraction({
-                event_type: 'watch',
+                interaction_type: 'watch',
                 movie_id: movieId,
-                metadata: { source: 'ui' },
             });
         },
         [interactionState.recordInteraction],
     );
 
     const rateMovie = useCallback(
-        (movieId: number, rating: number): void => {
+        (movieId: string, rating: number): void => {
             void interactionState.recordInteraction({
-                event_type: 'rating',
+                interaction_type: 'rating',
                 movie_id: movieId,
-                rating,
-                metadata: { source: 'ui' },
+                interaction_value: rating,
             });
         },
         [interactionState.recordInteraction],

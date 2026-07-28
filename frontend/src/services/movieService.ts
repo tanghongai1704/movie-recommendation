@@ -3,10 +3,12 @@ import type { Movie, MovieListParams } from '../types/api';
 
 export const movieService = {
     getMovies(params: MovieListParams = {}): Promise<Movie[]> {
-        return apiClient.get<Movie[]>('/movies', { ...params }, { allowGuest: true });
+        return apiClient.get<Movie[]>('/movies', { ...params }, { requiresAuth: false });
     },
 
-    getMovie(movieId: number): Promise<Movie> {
-        return apiClient.get<Movie>(`/movies/${movieId}`, undefined, { allowGuest: true });
+    getMovie(movieId: string): Promise<Movie> {
+        return apiClient.get<Movie>(`/movie/${movieId}`, undefined, {
+            requiresAuth: false,
+        });
     },
 };

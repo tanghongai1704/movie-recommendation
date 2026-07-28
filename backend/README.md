@@ -6,7 +6,8 @@ the five DynamoDB tables used by the movie recommendation system.
 ## Current responsibilities
 
 - serve the existing API routes under `/api/v1`
-- handle the current authentication placeholder routes
+- register and authenticate users with password hashing and JWT access tokens
+- expose protected profile, onboarding, interaction, and recommendation flows
 - expose canonical movie and recommendation response fields
 - serve valid recommendation-cache entries before invoking the provider
 - enrich cached movie references from the Movies repository
@@ -45,6 +46,9 @@ field inventory, data flow, field mapping, and naming rules.
 
 See [DynamoDB Repository Layer](docs/repositories.md) for the one-repository-per-
 table layout, CRUD contracts, configuration, and boundary rules.
+
+See [Authentication Flow](../docs/architecture/authentication-flow.md) for user
+states, JWT middleware, protected routes, and frontend redirects.
 
 ## Data flow
 
@@ -117,7 +121,11 @@ PYTHONPATH=. python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reloa
 
 - `LOG_LEVEL` - logging level, default `INFO`
 - `DEBUG` - enables debug mode when set to `True`
-- `AUTH_TOKEN_PREFIX` - token prefix used by the demo auth flow
+- `JWT_SECRET` - required secret with at least 32 bytes
+- `JWT_ISSUER` - JWT issuer, default `movie-recommendation-api`
+- `JWT_AUDIENCE` - JWT audience, default `movie-recommendation-frontend`
+- `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` - access-token lifetime, default `60`
+- `PASSWORD_HASH_ITERATIONS` - PBKDF2 work factor, default `600000`
 - `AWS_REGION` - DynamoDB region
 - `AWS_DYNAMODB_TABLE_MOVIES` - Movies table name
 - `AWS_DYNAMODB_TABLE_POPULAR` - PopularMovies table name

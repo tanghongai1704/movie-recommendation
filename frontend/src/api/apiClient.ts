@@ -7,14 +7,13 @@ interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
     body?: unknown;
     query?: QueryParams;
     requiresAuth?: boolean;
-    allowGuest?: boolean;
 }
 
 const API_BASE_URL = (
     import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'
 ).replace(/\/+$/, '');
 const TOKEN_STORAGE_KEY = 'movie-recommendation.access-token';
-const DEFAULT_DEMO_TOKEN = import.meta.env.VITE_API_TOKEN || 'dummy-token-for-demo';
+export const AUTH_UNAUTHORIZED_EVENT = 'movie-recommendation:unauthorized';
 
 export class ApiError extends Error {
     constructor(
@@ -89,7 +88,6 @@ class ApiClient {
             body,
             query,
             requiresAuth = true,
-            allowGuest = false,
             headers,
             ...init
         }: ApiRequestOptions,
@@ -102,11 +100,10 @@ class ApiClient {
         }
 
         if (requiresAuth) {
-            const requestToken = this.accessToken || (allowGuest ? DEFAULT_DEMO_TOKEN : null);
-            if (!requestToken) {
+            if (!this.accessToken) {
                 throw new ApiError('Authentication is required for this action.', 401);
             }
-            requestHeaders.set('Authorization', `Bearer ${requestToken}`);
+            requestHeaders.set('Authorization', `Bearer ${this.accessToken}`);
         }
 
         const response = await fetch(this.buildUrl(path, query), {
@@ -119,6 +116,10 @@ class ApiClient {
 
         if (!response.ok) {
             const errorPayload = payload as ApiErrorResponse | undefined;
+            if (response.status === 401 && requiresAuth) {
+                this.clearAccessToken();
+                window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
+            }
             const detail =
                 typeof errorPayload?.detail === 'string' ? errorPayload.detail : undefined;
             throw new ApiError(

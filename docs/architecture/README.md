@@ -18,6 +18,6 @@ Browser -> React UI -> API client -> FastAPI route -> service -> repository/prov
 ## Current implementation boundaries
 
 - Frontend: UI and API consumption
-- Backend: REST API, auth placeholder, service layer, repository abstraction
+- Backend: REST API, JWT authentication, service layer, repository abstraction
 - ML: future training/inference scaffolding
 - Infrastructure: Docker Compose and deployment workflow

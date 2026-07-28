@@ -1,10 +1,13 @@
 import HomePage from './components/HomePage';
 import LoginPage from './components/LoginPage';
 import OnboardingPage from './components/OnboardingPage';
+import ProfilePage from './components/ProfilePage';
+import RegisterPage from './components/RegisterPage';
 import { useAuth } from './features/auth/useAuth';
 import { useAuthRouting } from './features/auth/useAuthRouting';
 import { useLoginForm } from './features/auth/useLoginForm';
 import { useNavigation } from './features/auth/useNavigation';
+import { useRegisterForm } from './features/auth/useRegisterForm';
 import { useMovieActions } from './features/interactions/useMovieActions';
 import { useMovies } from './features/movies/useMovies';
 
@@ -13,12 +16,13 @@ function App() {
     const { route, navigate } = useNavigation();
     const movies = useMovies();
     const loginForm = useLoginForm(auth.login);
+    const registerForm = useRegisterForm(auth.register);
     const movieActions = useMovieActions(auth.userState, navigate);
     const authReady = auth.status !== 'idle' && auth.status !== 'loading';
 
     useAuthRouting(auth.userState, authReady, route, navigate);
 
-    if (!authReady && route !== 'login') {
+    if (!authReady && route !== 'login' && route !== 'register') {
         return (
             <div className="grid min-h-screen place-items-center bg-[#05070b] text-zinc-300">
                 Loading your experience…
@@ -37,15 +41,49 @@ function App() {
                 onPasswordChange={loginForm.setPassword}
                 onSubmit={loginForm.submit}
                 onBrowseAsGuest={() => navigate('home')}
+                onCreateAccount={() => navigate('register')}
             />
         );
     }
 
-    if (route === 'onboarding') {
+    if (route === 'register') {
+        return (
+            <RegisterPage
+                email={registerForm.email}
+                username={registerForm.username}
+                password={registerForm.password}
+                isSubmitting={auth.status === 'loading'}
+                error={auth.error}
+                onEmailChange={registerForm.setEmail}
+                onUsernameChange={registerForm.setUsername}
+                onPasswordChange={registerForm.setPassword}
+                onSubmit={registerForm.submit}
+                onSignIn={() => navigate('login')}
+                onBrowseAsGuest={() => navigate('home')}
+            />
+        );
+    }
+
+    if (route === 'onboarding' && auth.user) {
         return (
             <OnboardingPage
-                username={auth.user?.username || ''}
+                username={auth.user.username}
+                isSubmitting={auth.status === 'loading'}
+                error={auth.error}
                 onComplete={auth.completeOnboarding}
+                onLogout={auth.logout}
+            />
+        );
+    }
+
+    if (route === 'profile' && auth.user) {
+        return (
+            <ProfilePage
+                user={auth.user}
+                isSubmitting={auth.status === 'loading'}
+                error={auth.error}
+                onUpdate={auth.updateProfile}
+                onBack={() => navigate('home')}
                 onLogout={auth.logout}
             />
         );
@@ -60,6 +98,7 @@ function App() {
             moviesError={movies.error}
             interactionError={movieActions.error}
             onSignIn={() => navigate('login')}
+            onProfile={() => navigate('profile')}
             onLogout={auth.logout}
             onMovieClick={movieActions.clickMovie}
             onWatch={movieActions.watchMovie}

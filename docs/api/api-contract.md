@@ -1,310 +1,262 @@
 # Stable API Contract
 
-This document defines the frontend/backend interface for the movie recommendation system.
-It is intentionally stable so the recommendation engine can change from mock data to SageMaker without changing the API shape.
+Base URL: `http://127.0.0.1:8000/api/v1`
 
-Base URL:
-- `http://127.0.0.1:8000/api/v1`
+Protected endpoints require:
 
-Authentication:
-- All protected endpoints require a bearer token in the `Authorization` header.
-- Format: `Authorization: Bearer <token>`
+```http
+Authorization: Bearer <access_token>
+```
 
-Common response envelope:
-- Success responses return JSON objects or arrays as defined below.
-- Error responses return a JSON object with an `error` field.
-
-## 1. Authentication
-
-### POST /auth/login
-
-- Purpose: Authenticate a user and receive a token.
-- Method: `POST`
-- Auth: None
-- Request body:
+Validation and application errors use FastAPI's canonical `detail` field:
 
 ```json
 {
-  "username": "demo",
+  "detail": "Human-readable error"
+}
+```
+
+## Access policy
+
+| Capability | Guest | First Login | Returning User |
+|---|---:|---:|---:|
+| Browse movie list/detail | Yes | Yes | Yes |
+| Register/login | Yes | N/A | N/A |
+| View/update own profile | No | Yes | Yes |
+| Record interactions | No | Yes | Yes |
+| Rate, like, share, watchlist actions | No | Yes | Yes |
+| Personalized recommendations | No | No | Yes |
+
+Like, share, and watchlist APIs are not currently product endpoints. When
+introduced, they must use the same registered-user dependency as interactions.
+
+## Authentication
+
+### POST `/auth/register`
+
+Creates a Users record, hashes the password, and returns a JWT session.
+
+Auth: public
+
+Request:
+
+```json
+{
+  "email": "viewer@example.com",
+  "username": "viewer",
   "password": "password123"
 }
 ```
 
-- Query parameters: None
-- Success response `200 OK`:
+Response: `201 Created`
 
 ```json
 {
-  "access_token": "dummy-token-for-demo",
-  "token_type": "bearer"
-}
-```
-
-- Error response `401 Unauthorized`:
-
-```json
-{
-  "error": "Invalid credentials"
-}
-```
-
-- Status codes:
-  - `200 OK`
-  - `401 Unauthorized`
-  - `422 Unprocessable Entity`
-  - `500 Internal Server Error`
-
-### GET /auth/me
-
-- Purpose: Retrieve the authenticated user profile.
-- Method: `GET`
-- Auth: Required
-- Request body: None
-- Query parameters: None
-- Success response `200 OK`:
-
-```json
-{
-  "user_id": 1,
-  "username": "demo",
-  "role": "user"
-}
-```
-
-- Error response `401 Unauthorized`:
-
-```json
-{
-  "error": "Invalid token"
-}
-```
-
-- Status codes:
-  - `200 OK`
-  - `401 Unauthorized`
-  - `500 Internal Server Error`
-
-## 2. Movies
-
-### GET /movies
-
-- Purpose: Retrieve a collection of movies. This endpoint is used by the UI as a movie catalog or recommendation feed.
-- Method: `GET`
-- Auth: Required
-- Request body: None
-- Query parameters:
-  - `limit` (integer, optional, default: `20`)
-  - `offset` (integer, optional, default: `0`)
-  - `genre` (string, optional)
-  - `sort_by` (string, optional, one of: `rating`, `year`, `title`)
-
-- Success response `200 OK`:
-
-```json
-[
-  {
-    "id": 1,
-    "title": "Midnight Horizon",
-    "genre": "Sci-Fi Thriller",
-    "year": 2025,
-    "rating": 8.9,
-    "description": "A brilliant pilot and a rogue AI race through a collapsing city.",
-    "image_url": "https://example.com/poster.jpg"
+  "access_token": "<jwt>",
+  "token_type": "bearer",
+  "expires_in": 3600,
+  "user": {
+    "user_id": "a9a24f96-a3eb-449f-87f5-a4f43e79de19",
+    "email": "viewer@example.com",
+    "username": "viewer",
+    "created_at": "2026-07-28T08:00:00Z",
+    "onboarding_genres": [],
+    "onboarding_completed": false,
+    "last_active_at": "2026-07-28T08:00:00Z",
+    "user_state": "first_login"
   }
-]
-```
-
-- Error response `401 Unauthorized`:
-
-```json
-{
-  "error": "Invalid token"
 }
 ```
 
-- Status codes:
-  - `200 OK`
-  - `401 Unauthorized`
-  - `400 Bad Request`
-  - `500 Internal Server Error`
+Status codes:
 
-### GET /movies/{movie_id}
+- `201` account created
+- `409` email or username already registered
+- `422` invalid input
+- `503` persistence unavailable
 
-- Purpose: Retrieve a single movie by identifier.
-- Method: `GET`
-- Auth: Required
-- Request body: None
-- Query parameters: None
-- Path parameters:
-  - `movie_id` (integer, required)
+### POST `/auth/login`
 
-- Success response `200 OK`:
+Accepts either username or email in the `username` field.
+
+Auth: public
+
+Request:
 
 ```json
 {
-  "id": 1,
+  "username": "viewer",
+  "password": "password123"
+}
+```
+
+Response: `200 OK`, using the same session shape as register.
+
+Status codes:
+
+- `200` authenticated
+- `401` invalid credentials
+- `422` invalid input
+- `503` persistence unavailable
+
+### POST `/auth/logout`
+
+Auth: registered user
+
+Response: `204 No Content`
+
+The backend uses stateless, short-lived JWT access tokens. Logout confirms the
+session is authenticated; the frontend then deletes its local token. The token
+is not server-revoked and expires according to `exp`.
+
+### GET `/auth/me`
+
+Auth: registered user
+
+Returns the current `UserProfileResponse`. `password_hash` is never exposed.
+
+### GET `/users/me/profile`
+
+Auth: registered user
+
+Alias for the current profile response.
+
+### PATCH `/users/me/profile`
+
+Auth: registered user
+
+Request may contain one or both editable fields:
+
+```json
+{
+  "email": "new-email@example.com",
+  "username": "new-username"
+}
+```
+
+Response: updated `UserProfileResponse`.
+
+Status codes:
+
+- `200` updated
+- `401` unauthenticated/invalid JWT
+- `409` email or username already registered
+- `422` invalid input
+- `503` persistence unavailable
+
+### PUT `/users/me/onboarding`
+
+Auth: registered user
+
+Request:
+
+```json
+{
+  "onboarding_genres": ["Drama", "Science Fiction"]
+}
+```
+
+Response: profile with:
+
+```json
+{
+  "onboarding_completed": true,
+  "user_state": "returning_user"
+}
+```
+
+At least one unique, non-empty genre is required.
+
+## Movies
+
+### GET `/movies`
+
+Auth: public
+
+Returns canonical Movies records. Guests use this endpoint without a fabricated
+identity or token.
+
+### GET `/movie/{movie_id}`
+
+Auth: public
+
+Returns one canonical Movies record or `404`.
+
+Movie response fields:
+
+```json
+{
+  "movie_id": "1",
   "title": "Midnight Horizon",
-  "genre": "Sci-Fi Thriller",
-  "year": 2025,
-  "rating": 8.9,
-  "description": "A brilliant pilot and a rogue AI race through a collapsing city.",
-  "image_url": "https://example.com/poster.jpg"
+  "release_year": 2025,
+  "genres": ["Science Fiction", "Thriller"],
+  "overview": "A brilliant pilot and a rogue AI race through a collapsing city.",
+  "poster_path": "https://example.com/poster.jpg",
+  "vote_average": 8.9,
+  "vote_count": 12400,
+  "popularity": 94.1,
+  "runtime": 132,
+  "original_language": "en",
+  "companies": ["Northstar Pictures"],
+  "countries": ["United States"],
+  "actors": ["Avery Chen"],
+  "directors": ["Jordan Vale"]
 }
 ```
 
-- Error response `404 Not Found`:
+## Interactions
+
+### POST `/users/me/interactions`
+
+Auth: registered user
+
+Guest requests receive `401`. Both First Login and Returning User accounts may
+record interactions.
+
+Request:
 
 ```json
 {
-  "error": "Movie not found"
+  "interaction_type": "rating",
+  "movie_id": "1",
+  "interaction_value": 4.5,
+  "session_id": "web-session-id"
 }
 ```
 
-- Status codes:
-  - `200 OK`
-  - `401 Unauthorized`
-  - `404 Not Found`
-  - `500 Internal Server Error`
+Supported interaction types: `click`, `watch`, `rating`.
 
-## 3. User profile
-
-### GET /users/me/profile
-
-- Purpose: Retrieve the current user profile in a stable, application-facing shape.
-- Method: `GET`
-- Auth: Required
-- Request body: None
-- Query parameters: None
-- Success response `200 OK`:
+Response: `201 Created`
 
 ```json
 {
-  "user_id": 1,
-  "username": "demo",
-  "role": "user"
+  "user_id": "a9a24f96-a3eb-449f-87f5-a4f43e79de19",
+  "interaction_key": "2026-07-28T08:10:00Z#1",
+  "movie_id": "1",
+  "interaction_type": "rating",
+  "interaction_value": 4.5,
+  "timestamp": "2026-07-28T08:10:00Z",
+  "session_id": "web-session-id"
 }
 ```
 
-- Error response `401 Unauthorized`:
+## Personalized recommendations
 
-```json
-{
-  "error": "Invalid token"
-}
-```
+### GET `/recommend/{user_id}`
 
-- Status codes:
-  - `200 OK`
-  - `401 Unauthorized`
-  - `500 Internal Server Error`
+Auth: Returning User
 
-## 4. User interactions
+Rules:
 
-### POST /users/me/interactions
+- JWT must be valid.
+- Token subject must resolve to a registered user.
+- `onboarding_completed` must be `true`.
+- Path `user_id` must equal the authenticated user ID.
 
-- Purpose: Record a user interaction event used for future recommendation signals.
-- Method: `POST`
-- Auth: Required
-- Request body:
+Responses:
 
-```json
-{
-  "event_type": "rating",
-  "movie_id": 1,
-  "rating": 4.5,
-  "metadata": {
-    "source": "ui"
-  }
-}
-```
+- `200` recommendation response
+- `401` guest, invalid, or expired token
+- `403` onboarding incomplete or user ID mismatch
 
-- Query parameters: None
-- Supported `event_type` values:
-  - `click`
-  - `watch`
-  - `rating` (requires `rating` from `0.5` to `5.0`)
-- Success response `201 Created`:
-
-```json
-{
-  "event_id": "evt_001",
-  "user_id": 1,
-  "event_type": "rating",
-  "movie_id": 1,
-  "rating": 4.5,
-  "created_at": "2026-07-27T12:00:00Z"
-}
-```
-
-- Error response `400 Bad Request`:
-
-```json
-{
-  "error": "Invalid interaction payload"
-}
-```
-
-- Status codes:
-  - `201 Created`
-  - `400 Bad Request`
-  - `401 Unauthorized`
-  - `422 Unprocessable Entity`
-  - `500 Internal Server Error`
-
-## 5. Recommendations
-
-### GET /recommendations
-
-- Purpose: Retrieve personalized recommendations for the current user.
-- Method: `GET`
-- Auth: Required
-- Request body: None
-- Query parameters:
-  - `user_id` (integer, optional)
-  - `limit` (integer, optional, default: `10`)
-  - `offset` (integer, optional, default: `0`)
-  - `context` (string, optional, example: `home`)
-
-- Success response `200 OK`:
-
-```json
-{
-  "user_id": 1,
-  "recommendations": [
-    {
-      "movie_id": 1,
-      "title": "Midnight Horizon",
-      "score": 0.98
-    }
-  ]
-}
-```
-
-- Error response `400 Bad Request`:
-
-```json
-{
-  "error": "Invalid recommendation request"
-}
-```
-
-- Status codes:
-  - `200 OK`
-  - `400 Bad Request`
-  - `401 Unauthorized`
-  - `500 Internal Server Error`
-
-## Stability principles
-
-The contract above remains stable regardless of whether recommendations are served from:
-- mock data
-- a local ML service
-- a SageMaker endpoint
-- a future real-time inference system
-
-The API contract is intentionally defined around stable concepts:
-- authentication
-- movie catalog access
-- user profile access
-- interaction recording
-- recommendation delivery
+The response contract is independent of the active RecommendationProvider.

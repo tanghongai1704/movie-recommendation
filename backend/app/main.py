@@ -13,6 +13,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from app.api.v1.routes import movies as movie_routes
 from app.api.v1.routes import auth as auth_routes
 from app.api.v1.routes import interactions as interaction_routes
+from app.container import jwt_service
+from app.middleware.authentication import JWTAuthenticationMiddleware
 
 
 def configure_logging() -> None:
@@ -43,6 +45,10 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+app.add_middleware(
+    JWTAuthenticationMiddleware,
+    jwt_service=jwt_service,
 )
 
 app.include_router(auth_routes.router, prefix="/api/v1", tags=["auth"])

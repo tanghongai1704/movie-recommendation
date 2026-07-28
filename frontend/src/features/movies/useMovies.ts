@@ -33,7 +33,7 @@ export function useMovies() {
         }
     }, []);
 
-    const getMovie = useCallback((movieId: number): Promise<Movie> => {
+    const getMovie = useCallback((movieId: string): Promise<Movie> => {
         return movieService.getMovie(movieId);
     }, []);
 

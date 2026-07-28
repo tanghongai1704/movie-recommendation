@@ -1,44 +1,63 @@
 import type { FormEvent } from 'react';
 
-interface LoginPageProps {
+interface RegisterPageProps {
+    email: string;
     username: string;
     password: string;
     isSubmitting: boolean;
     error: string | null;
+    onEmailChange: (value: string) => void;
     onUsernameChange: (value: string) => void;
     onPasswordChange: (value: string) => void;
     onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+    onSignIn: () => void;
     onBrowseAsGuest: () => void;
-    onCreateAccount: () => void;
 }
 
-function LoginPage({
+function RegisterPage({
+    email,
     username,
     password,
     isSubmitting,
     error,
+    onEmailChange,
     onUsernameChange,
     onPasswordChange,
     onSubmit,
+    onSignIn,
     onBrowseAsGuest,
-    onCreateAccount,
-}: LoginPageProps) {
+}: RegisterPageProps) {
     return (
-        <main className="grid min-h-screen place-items-center bg-[#05070b] px-4 text-white">
+        <main className="grid min-h-screen place-items-center bg-[#05070b] px-4 py-8 text-white">
             <section className="w-full max-w-md rounded-3xl border border-white/10 bg-zinc-900/80 p-8 shadow-2xl">
-                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-red-400">StreamVerse</p>
-                <h1 className="mt-3 text-3xl font-semibold">Welcome back</h1>
+                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-red-400">
+                    StreamVerse
+                </p>
+                <h1 className="mt-3 text-3xl font-semibold">Create your account</h1>
                 <p className="mt-2 text-sm text-zinc-400">
-                    Sign in to watch, rate, and personalize your recommendations.
+                    Register once, select your favorite genres, and unlock personalized recommendations.
                 </p>
 
                 <form className="mt-8 space-y-5" onSubmit={onSubmit}>
+                    <label className="block text-sm font-medium text-zinc-200">
+                        Email
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(event) => onEmailChange(event.target.value)}
+                            autoComplete="email"
+                            required
+                            className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none transition focus:border-red-500"
+                        />
+                    </label>
                     <label className="block text-sm font-medium text-zinc-200">
                         Username
                         <input
                             value={username}
                             onChange={(event) => onUsernameChange(event.target.value)}
                             autoComplete="username"
+                            minLength={3}
+                            required
                             className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none transition focus:border-red-500"
                         />
                     </label>
@@ -48,7 +67,9 @@ function LoginPage({
                             type="password"
                             value={password}
                             onChange={(event) => onPasswordChange(event.target.value)}
-                            autoComplete="current-password"
+                            autoComplete="new-password"
+                            minLength={8}
+                            required
                             className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 outline-none transition focus:border-red-500"
                         />
                     </label>
@@ -64,25 +85,25 @@ function LoginPage({
                         disabled={isSubmitting}
                         className="w-full rounded-xl bg-red-600 px-4 py-3 font-semibold transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                        {isSubmitting ? 'Signing in…' : 'Sign In'}
+                        {isSubmitting ? 'Creating account…' : 'Create Account'}
                     </button>
                 </form>
 
                 <button
-                    onClick={onBrowseAsGuest}
+                    onClick={onSignIn}
                     className="mt-4 w-full rounded-xl border border-white/10 px-4 py-3 text-sm text-zinc-300 transition hover:bg-white/5"
                 >
-                    Continue browsing as guest
+                    Already registered? Sign in
                 </button>
                 <button
-                    onClick={onCreateAccount}
-                    className="mt-3 w-full text-sm font-medium text-red-300 transition hover:text-red-200"
+                    onClick={onBrowseAsGuest}
+                    className="mt-3 w-full text-sm font-medium text-zinc-400 transition hover:text-white"
                 >
-                    New here? Create an account
+                    Continue browsing as guest
                 </button>
             </section>
         </main>
     );
 }
 
-export default LoginPage;
+export default RegisterPage;

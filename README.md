@@ -7,7 +7,7 @@ A Netflix-style movie recommendation prototype built with a React frontend, a Fa
 This repository currently implements a simple end-to-end experience:
 
 - the frontend renders a polished landing page and requests recommendation data from the backend
-- the backend exposes REST endpoints for movies, recommendations, and demo authentication
+- the backend exposes REST endpoints for movies, recommendations, JWT authentication, profiles, and onboarding
 - the ML layer is currently represented by a service abstraction and a mock recommendation path, with future support planned for SageMaker-based inference
 
 ## Current architecture
@@ -32,7 +32,7 @@ AWS / storage integration (planned and partially scaffolded)
 
 - React landing page and movie section UI
 - FastAPI backend with API routes
-- demo authentication flow
+- registered-user authentication with salted password hashes and JWT access tokens
 - service/repository abstractions for movies and recommendations
 - mock recommendation provider for local development
 - Docker Compose based local deployment
@@ -42,7 +42,7 @@ AWS / storage integration (planned and partially scaffolded)
 
 - no real persisted movie database
 - no deployed ML model
-- no production authentication or user management
+- no external identity provider or distributed JWT revocation store
 - no real AWS credentials or deployment wiring beyond scaffolding
 
 ## Repository structure
@@ -67,6 +67,8 @@ project-root/
 ## API contract
 
 A stable API contract for the current frontend/backend boundary is documented in [docs/api/api-contract.md](docs/api/api-contract.md).
+The guest, first-login, returning-user, JWT, and redirect behavior is documented
+in [docs/architecture/authentication-flow.md](docs/architecture/authentication-flow.md).
 
 ## Development flow
 
@@ -90,17 +92,20 @@ PYTHONPATH=. python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reloa
 
 Copy `.env.example` to `.env` and adjust values as needed.
 
-Required variables:
+Required backend variables:
 
-- `VITE_API_URL`
-- `LOG_LEVEL`
-- `DEBUG`
-- `AUTH_TOKEN_PREFIX`
+- `JWT_SECRET`
 - `AWS_REGION`
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `AWS_S3_BUCKET`
-- `AWS_DYNAMODB_TABLE`
+- `AWS_DYNAMODB_TABLE_MOVIES`
+- `AWS_DYNAMODB_TABLE_POPULAR`
+- `AWS_DYNAMODB_TABLE_USERS`
+- `AWS_DYNAMODB_TABLE_INTERACTIONS`
+- `AWS_DYNAMODB_TABLE_RECOMMENDATION_CACHE`
+
+Optional authentication settings include `JWT_ISSUER`, `JWT_AUDIENCE`,
+`JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, and `PASSWORD_HASH_ITERATIONS`. The frontend
+uses `VITE_API_URL`, defaulting to the local backend URL. AWS credentials follow
+the standard AWS SDK credential chain and must not be committed.
 
 ## AWS integration roadmap
 

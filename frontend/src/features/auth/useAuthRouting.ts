@@ -18,12 +18,18 @@ export function useAuthRouting(
             return;
         }
 
-        if (userState === 'returning-user' && route !== 'home') {
+        if (
+            userState === 'returning-user'
+            && (route === 'login' || route === 'register' || route === 'onboarding')
+        ) {
             navigate('home', true);
             return;
         }
 
-        if (userState === 'guest' && route === 'onboarding') {
+        if (
+            userState === 'guest'
+            && (route === 'onboarding' || route === 'profile')
+        ) {
             navigate('login', true);
         }
     }, [authReady, navigate, route, userState]);

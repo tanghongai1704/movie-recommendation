@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from app.api.dependencies.auth import require_completed_onboarding
 from app.core.config import settings
+from app.models.user import User
 from app.repositories.movie_repository import InMemoryMovieRepository
 from app.repositories.recommendation_cache_repository import (
     RecommendationCacheRepository,
@@ -13,7 +14,6 @@ from app.services.movie_service import MovieService
 from app.services.recommendation_service import RecommendationService
 
 router = APIRouter()
-security = HTTPBearer()
 
 movie_repository = InMemoryMovieRepository()
 recommendation_service = RecommendationService(
@@ -31,35 +31,43 @@ movie_service = MovieService(
 )
 
 
-def get_current_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
-    token = credentials.credentials
-    if not token.startswith(settings.AUTH_TOKEN_PREFIX):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    return token
-
-
 @router.get("/movies", response_model=list[MovieResponse])
-def list_movies(token: str = Depends(get_current_token)) -> list[MovieResponse]:
-    return movie_service.get_recommendations(user_id="1")
+def list_movies() -> list[MovieResponse]:
+    """Public movie catalog available to guests and registered users."""
+
+    return movie_service.get_all_movies()
 
 
 @router.get("/recommend/{user_id}", response_model=RecommendationResponse)
 def get_recommendations(
     user_id: str,
-    token: str = Depends(get_current_token),
+    user: User = Depends(require_completed_onboarding),
 ) -> RecommendationResponse:
+    if user_id != user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Recommendations can only be requested for the current user",
+        )
     try:
-        return movie_service.get_recommendation_payload(user_id=user_id, limit=10)
+        return movie_service.get_recommendation_payload(
+            user_id=user.user_id,
+            limit=10,
+        )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
 
 
 @router.get("/movie/{movie_id}", response_model=MovieResponse)
-def get_movie(
-    movie_id: str,
-    token: str = Depends(get_current_token),
-) -> MovieResponse:
+def get_movie(movie_id: str) -> MovieResponse:
+    """Public movie detail available to guests and registered users."""
+
     movie = movie_service.get_movie_by_id(movie_id)
     if not movie:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Movie not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Movie not found",
+        )
     return movie

@@ -13,7 +13,15 @@ class Settings:
     PROJECT_ROOT = Path(__file__).resolve().parents[2]
     API_V1_PREFIX = "/api/v1"
     DEBUG = os.getenv("DEBUG", "False").lower() == "true"
-    AUTH_TOKEN_PREFIX = os.getenv("AUTH_TOKEN_PREFIX", "dummy-token-for-")
+    JWT_SECRET = _required_environment_variable("JWT_SECRET")
+    JWT_ISSUER = os.getenv("JWT_ISSUER", "movie-recommendation-api")
+    JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "movie-recommendation-frontend")
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(
+        os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "60")
+    )
+    PASSWORD_HASH_ITERATIONS = int(
+        os.getenv("PASSWORD_HASH_ITERATIONS", "600000")
+    )
     AWS_REGION = _required_environment_variable("AWS_REGION")
     AWS_DYNAMODB_TABLE_MOVIES = _required_environment_variable(
         "AWS_DYNAMODB_TABLE_MOVIES"

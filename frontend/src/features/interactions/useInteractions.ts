@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
+import { ApiError } from '../../api/apiClient';
 import { interactionService } from '../../services/interactionService';
-import type { CreateInteractionRequest, Interaction } from '../../types/api';
+import type { CreateInteractionInput, Interaction } from '../../types/api';
 import { getErrorMessage, type AsyncStatus } from '../../state/asyncState';
 
 interface InteractionsState {
@@ -27,7 +28,7 @@ export function useInteractions({
     const [state, setState] = useState<InteractionsState>(initialState);
 
     const recordInteraction = useCallback(
-        async (payload: CreateInteractionRequest): Promise<Interaction | null> => {
+        async (payload: CreateInteractionInput): Promise<Interaction | null> => {
             if (!canCreate) {
                 onAuthenticationRequired();
                 return null;
@@ -44,6 +45,9 @@ export function useInteractions({
                 }));
                 return interaction;
             } catch (error) {
+                if (error instanceof ApiError && error.status === 401) {
+                    onAuthenticationRequired();
+                }
                 setState((current) => ({
                     ...current,
                     status: 'error',

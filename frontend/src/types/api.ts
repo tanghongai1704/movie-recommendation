@@ -1,30 +1,62 @@
+export interface RegisterRequest {
+    email: string;
+    username: string;
+    password: string;
+}
+
 export interface LoginRequest {
     username: string;
     password: string;
 }
 
+export type AuthenticatedUserState = 'first_login' | 'returning_user';
+
+export interface UserProfile {
+    user_id: string;
+    email: string;
+    username: string;
+    created_at: string;
+    onboarding_genres: string[];
+    onboarding_completed: boolean;
+    last_active_at: string;
+    user_state: AuthenticatedUserState;
+}
+
 export interface TokenResponse {
     access_token: string;
     token_type: string;
+    expires_in: number;
+    user: UserProfile;
 }
 
-export interface UserProfile {
-    user_id: number;
-    username: string;
-    role: string;
+export interface UpdateProfileRequest {
+    email?: string;
+    username?: string;
+}
+
+export interface CompleteOnboardingRequest {
+    onboarding_genres: string[];
 }
 
 export interface Movie {
-    id: number;
+    movie_id: string;
     title: string;
-    genre: string;
-    year: number;
-    rating: number;
-    description: string;
-    image_url: string;
+    release_year: number | null;
+    genres: string[];
+    overview: string;
+    poster_path: string | null;
+    vote_average: number;
+    vote_count: number;
+    popularity: number;
+    runtime: number | null;
+    original_language: string;
+    companies: string[];
+    countries: string[];
+    actors: string[];
+    directors: string[];
 }
 
-export type MovieSortField = 'rating' | 'year' | 'title';
+export type MovieSortField = 'vote_average' | 'release_year' | 'title';
 
 export interface MovieListParams {
     limit?: number;
@@ -33,37 +65,38 @@ export interface MovieListParams {
     sort_by?: MovieSortField;
 }
 
-export type InteractionEventType = 'click' | 'watch' | 'rating';
+export type InteractionType = 'click' | 'watch' | 'rating';
 
 export interface CreateInteractionRequest {
-    event_type: InteractionEventType;
-    movie_id: number;
-    rating?: number;
-    metadata?: Record<string, unknown>;
+    interaction_type: InteractionType;
+    movie_id: string;
+    interaction_value?: number;
+    session_id: string;
 }
+
+export type CreateInteractionInput = Omit<CreateInteractionRequest, 'session_id'>;
 
 export interface Interaction {
-    event_id: string;
-    user_id: number;
-    event_type: InteractionEventType;
-    movie_id: number;
-    rating?: number;
-    created_at: string;
+    user_id: string;
+    interaction_key: string;
+    movie_id: string;
+    interaction_type: InteractionType;
+    interaction_value: number | null;
+    timestamp: string;
+    session_id: string;
 }
 
-export interface RecommendationItem {
-    movie_id: number;
-    title: string;
+export interface RecommendationItem extends Movie {
     score: number | null;
+    reason_code: string | null;
 }
 
 export interface RecommendationResponse {
-    user_id: number;
+    user_id: string;
     recommendations: RecommendationItem[];
 }
 
 export interface RecommendationParams {
-    user_id?: number;
     limit?: number;
     offset?: number;
     context?: string;

@@ -10,14 +10,15 @@ interface HomePageProps {
     moviesError: string | null;
     interactionError: string | null;
     onSignIn: () => void;
-    onLogout: () => void;
-    onMovieClick: (movieId: number) => void;
-    onWatch: (movieId: number) => void;
-    onRate: (movieId: number, rating: number) => void;
+    onProfile: () => void;
+    onLogout: () => Promise<void>;
+    onMovieClick: (movieId: string) => void;
+    onWatch: (movieId: string) => void;
+    onRate: (movieId: string, rating: number) => void;
 }
 
 const featuredMovie = {
-    id: 1,
+    id: '1',
     title: 'Midnight Horizon',
     year: '2025',
     duration: '2h 08m',
@@ -37,6 +38,7 @@ function HomePage({
     moviesError,
     interactionError,
     onSignIn,
+    onProfile,
     onLogout,
     onMovieClick,
     onWatch,
@@ -72,7 +74,13 @@ function HomePage({
                             <>
                                 <span className="text-sm text-zinc-300">Hi, {username}</span>
                                 <button
-                                    onClick={onLogout}
+                                    onClick={onProfile}
+                                    className="rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-white/40 hover:bg-white/5"
+                                >
+                                    Profile
+                                </button>
+                                <button
+                                    onClick={() => void onLogout()}
                                     className="rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-white/40 hover:bg-white/5"
                                 >
                                     Sign Out
@@ -160,10 +168,12 @@ function HomePage({
                 <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
                     <div className="mb-6">
                         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-red-400">
-                            Recommended For You
+                            {isGuest ? 'Explore Movies' : 'Your Movie Catalog'}
                         </p>
                         <h2 className="mt-2 text-2xl font-semibold text-white">
-                            Curated from the backend API
+                            {isGuest
+                                ? 'Browse freely and sign in for protected actions'
+                                : 'Your registered account is ready for protected actions'}
                         </h2>
                     </div>
 
@@ -189,7 +199,7 @@ function HomePage({
                         </div>
                     ) : (
                         <MovieSection
-                            title="Recommended For You"
+                            title={isGuest ? 'Popular Now' : 'Movies For You'}
                             movies={movies}
                             fallbackImage={featuredMovie.image}
                             onMovieClick={onMovieClick}
