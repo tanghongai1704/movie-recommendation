@@ -1,5 +1,6 @@
 import HomePage from './components/HomePage';
 import LoginPage from './components/LoginPage';
+import MovieDetailPage from './components/MovieDetailPage';
 import OnboardingPage from './components/OnboardingPage';
 import ProfilePage from './components/ProfilePage';
 import RegisterPage from './components/RegisterPage';
@@ -9,12 +10,16 @@ import { useLoginForm } from './features/auth/useLoginForm';
 import { useNavigation } from './features/auth/useNavigation';
 import { useRegisterForm } from './features/auth/useRegisterForm';
 import { useMovieActions } from './features/interactions/useMovieActions';
+import { useMovieDetail } from './features/movies/useMovieDetail';
 import { useMovies } from './features/movies/useMovies';
 
 function App() {
     const auth = useAuth();
-    const { route, navigate } = useNavigation();
+    const { route, movieId, navigate, navigateToMovie } = useNavigation();
     const movies = useMovies();
+    const movieDetail = useMovieDetail(
+        route === 'movie-detail' ? movieId : null,
+    );
     const loginForm = useLoginForm(auth.login);
     const registerForm = useRegisterForm(auth.register);
     const movieActions = useMovieActions(auth.userState, navigate);
@@ -89,6 +94,19 @@ function App() {
         );
     }
 
+    if (route === 'movie-detail') {
+        return (
+            <MovieDetailPage
+                movie={movieDetail.movie}
+                isLoading={movieDetail.isLoading}
+                error={movieDetail.error}
+                onBack={() => navigate('home')}
+                onWatch={movieActions.watchMovie}
+                onRate={movieActions.rateMovie}
+            />
+        );
+    }
+
     return (
         <HomePage
             userState={auth.userState}
@@ -100,7 +118,10 @@ function App() {
             onSignIn={() => navigate('login')}
             onProfile={() => navigate('profile')}
             onLogout={auth.logout}
-            onMovieClick={movieActions.clickMovie}
+            onMovieClick={(selectedMovieId) => {
+                movieActions.clickMovie(selectedMovieId);
+                navigateToMovie(selectedMovieId);
+            }}
             onWatch={movieActions.watchMovie}
             onRate={movieActions.rateMovie}
         />

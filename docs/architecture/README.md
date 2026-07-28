@@ -2,7 +2,10 @@
 
 ## Current runtime flow
 
-1. The frontend loads in the browser and calls the backend API from the React service layer.
+1. The frontend loads in the browser and calls the backend API from the React
+   service layer. Public movie cards navigate to `/movies/{movie_id}`, where a
+   movie-detail hook loads all canonical Movies fields and drives a poster-only
+   simulated player.
 2. FastAPI routes receive those requests and delegate to application services.
 3. `RecommendationService` checks DynamoDB for a valid per-user, per-scenario cache entry.
 4. Cache hits return the stored ordered movie IDs and snapshots without invoking the provider.

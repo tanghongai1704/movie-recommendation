@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 import type { AuthUserState } from '../auth/useAuth';
-import type { AppRoute } from '../auth/useNavigation';
+import type { StaticAppRoute } from '../auth/useNavigation';
 import { useInteractions } from './useInteractions';
 
-type Navigate = (route: AppRoute, replace?: boolean) => void;
+type Navigate = (route: StaticAppRoute, replace?: boolean) => void;
 
 export function useMovieActions(userState: AuthUserState, navigate: Navigate) {
     const handleAuthenticationRequired = useCallback((): void => {
@@ -17,33 +17,54 @@ export function useMovieActions(userState: AuthUserState, navigate: Navigate) {
 
     const clickMovie = useCallback(
         (movieId: string): void => {
+            if (userState === 'guest') {
+                return;
+            }
             void interactionState.recordInteraction({
                 interaction_type: 'click',
                 movie_id: movieId,
             });
         },
-        [interactionState.recordInteraction],
+        [interactionState.recordInteraction, userState],
     );
 
     const watchMovie = useCallback(
-        (movieId: string): void => {
+        (movieId: string): boolean => {
+            if (userState === 'guest') {
+                handleAuthenticationRequired();
+                return false;
+            }
             void interactionState.recordInteraction({
                 interaction_type: 'watch',
                 movie_id: movieId,
             });
+            return true;
         },
-        [interactionState.recordInteraction],
+        [
+            handleAuthenticationRequired,
+            interactionState.recordInteraction,
+            userState,
+        ],
     );
 
     const rateMovie = useCallback(
-        (movieId: string, rating: number): void => {
+        (movieId: string, rating: number): boolean => {
+            if (userState === 'guest') {
+                handleAuthenticationRequired();
+                return false;
+            }
             void interactionState.recordInteraction({
                 interaction_type: 'rating',
                 movie_id: movieId,
                 interaction_value: rating,
             });
+            return true;
         },
-        [interactionState.recordInteraction],
+        [
+            handleAuthenticationRequired,
+            interactionState.recordInteraction,
+            userState,
+        ],
     );
 
     return {

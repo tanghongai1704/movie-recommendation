@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
 import type { AuthUserState } from './useAuth';
-import type { AppRoute } from './useNavigation';
+import type { AppRoute, StaticAppRoute } from './useNavigation';
 
 export function useAuthRouting(
     userState: AuthUserState,
     authReady: boolean,
     route: AppRoute,
-    navigate: (route: AppRoute, replace?: boolean) => void,
+    navigate: (route: StaticAppRoute, replace?: boolean) => void,
 ): void {
     useEffect(() => {
         if (!authReady) {

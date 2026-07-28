@@ -1,45 +1,83 @@
 import { useCallback, useEffect, useState } from 'react';
 
-export type AppRoute = 'home' | 'login' | 'register' | 'onboarding' | 'profile';
+export type StaticAppRoute =
+    | 'home'
+    | 'login'
+    | 'register'
+    | 'onboarding'
+    | 'profile';
+export type AppRoute = StaticAppRoute | 'movie-detail';
 
-const routePaths: Record<AppRoute, string> = {
+const routePaths: Record<StaticAppRoute, string> = {
     home: '/',
     login: '/login',
     register: '/register',
     onboarding: '/onboarding',
     profile: '/profile',
 };
+const movieDetailPrefix = '/movies/';
 
-function getRoute(pathname: string): AppRoute {
+interface NavigationState {
+    route: AppRoute;
+    movieId: string | null;
+}
+
+function getNavigationState(pathname: string): NavigationState {
     if (pathname === routePaths.login) {
-        return 'login';
+        return { route: 'login', movieId: null };
     }
     if (pathname === routePaths.register) {
-        return 'register';
+        return { route: 'register', movieId: null };
     }
     if (pathname === routePaths.onboarding) {
-        return 'onboarding';
+        return { route: 'onboarding', movieId: null };
     }
     if (pathname === routePaths.profile) {
-        return 'profile';
+        return { route: 'profile', movieId: null };
     }
-    return 'home';
+    if (pathname.startsWith(movieDetailPrefix)) {
+        const encodedMovieId = pathname.slice(movieDetailPrefix.length);
+        if (encodedMovieId) {
+            try {
+                return {
+                    route: 'movie-detail',
+                    movieId: decodeURIComponent(encodedMovieId),
+                };
+            } catch {
+                return { route: 'home', movieId: null };
+            }
+        }
+    }
+    return { route: 'home', movieId: null };
 }
 
 export function useNavigation() {
-    const [route, setRoute] = useState<AppRoute>(() => getRoute(window.location.pathname));
+    const [navigation, setNavigation] = useState<NavigationState>(() =>
+        getNavigationState(window.location.pathname),
+    );
 
-    const navigate = useCallback((nextRoute: AppRoute, replace = false): void => {
+    const navigate = useCallback((nextRoute: StaticAppRoute, replace = false): void => {
         const path = routePaths[nextRoute];
         window.history[replace ? 'replaceState' : 'pushState']({}, '', path);
-        setRoute(nextRoute);
+        setNavigation({ route: nextRoute, movieId: null });
+    }, []);
+
+    const navigateToMovie = useCallback((movieId: string, replace = false): void => {
+        const path = `${movieDetailPrefix}${encodeURIComponent(movieId)}`;
+        window.history[replace ? 'replaceState' : 'pushState']({}, '', path);
+        setNavigation({ route: 'movie-detail', movieId });
     }, []);
 
     useEffect(() => {
-        const handlePopState = () => setRoute(getRoute(window.location.pathname));
+        const handlePopState = () =>
+            setNavigation(getNavigationState(window.location.pathname));
         window.addEventListener('popstate', handlePopState);
         return () => window.removeEventListener('popstate', handlePopState);
     }, []);
 
-    return { route, navigate };
+    return {
+        ...navigation,
+        navigate,
+        navigateToMovie,
+    };
 }
