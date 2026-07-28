@@ -65,22 +65,45 @@ export interface MovieListParams {
     sort_by?: MovieSortField;
 }
 
-export type InteractionType = 'click' | 'watch' | 'rating';
+export type InteractionType =
+    | 'click'
+    | 'watch'
+    | 'rating'
+    | 'reaction'
+    | 'share';
+
+export type InteractionAction =
+    | 'open_detail'
+    | 'start'
+    | 'progress'
+    | 'complete'
+    | 'submit'
+    | 'like'
+    | 'dislike'
+    | 'native_share'
+    | 'copy_link';
 
 export interface CreateInteractionRequest {
     interaction_type: InteractionType;
+    interaction_action: InteractionAction;
     movie_id: string;
     interaction_value?: number;
+    timestamp: string;
     session_id: string;
 }
 
-export type CreateInteractionInput = Omit<CreateInteractionRequest, 'session_id'>;
+export type CreateInteractionInput = Omit<
+    CreateInteractionRequest,
+    'session_id' | 'timestamp'
+>;
 
 export interface Interaction {
     user_id: string;
     interaction_key: string;
+    event_id: string;
     movie_id: string;
     interaction_type: InteractionType;
+    interaction_action: InteractionAction;
     interaction_value: number | null;
     timestamp: string;
     session_id: string;

@@ -1,6 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 from typing import Any
+from uuid import UUID
 
 from app.models.movie import Movie
 from app.models.popular_movie import PopularMovie
@@ -9,7 +10,11 @@ from app.models.recommendation_cache import (
     RecommendationCacheItem,
 )
 from app.models.user import User, UserSettings
-from app.models.user_interaction import InteractionType, UserInteraction
+from app.models.user_interaction import (
+    InteractionAction,
+    InteractionType,
+    UserInteraction,
+)
 from app.repositories.movies_repository import MoviesRepository
 from app.repositories.popular_movies_repository import PopularMoviesRepository
 from app.repositories.recommendation_cache_repository import (
@@ -19,6 +24,17 @@ from app.repositories.user_interactions_repository import (
     UserInteractionsRepository,
 )
 from app.repositories.users_repository import UsersRepository
+
+
+class FakeConditionalError(Exception):
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.response = {
+            "Error": {
+                "Code": "ConditionalCheckFailedException",
+                "Message": message,
+            }
+        }
 
 
 class FakeDynamoDBTable:
@@ -43,8 +59,17 @@ class FakeDynamoDBTable:
     def _matches(item: dict[str, Any], key: dict[str, Any]) -> bool:
         return all(item.get(name) == value for name, value in key.items())
 
-    def put_item(self, *, Item: dict[str, Any], **_: Any) -> dict[str, Any]:
+    def put_item(self, *, Item: dict[str, Any], **options: Any) -> dict[str, Any]:
         key = {name: Item[name] for name in self._key_fields(Item)}
+        existing = next(
+            (item for item in self.items if self._matches(item, key)),
+            None,
+        )
+        condition = options.get("ConditionExpression", "")
+        if "attribute_not_exists" in condition and existing is not None:
+            raise FakeConditionalError("Item already exists")
+        if "attribute_exists" in condition and existing is None:
+            raise FakeConditionalError("Item does not exist")
         self.items = [item for item in self.items if not self._matches(item, key)]
         self.items.append(Item)
         return {}
@@ -200,9 +225,14 @@ class DynamoDBRepositoryTests(unittest.TestCase):
         )
         interaction = UserInteraction(
             user_id="user-1",
-            interaction_key="2026-07-28T00:00:00Z#movie-1",
+            interaction_key=(
+                "2026-07-28T00:00:00.000Z#movie-1"
+                "#00000000-0000-4000-8000-000000000001"
+            ),
+            event_id=UUID("00000000-0000-4000-8000-000000000001"),
             movie_id="movie-1",
             interaction_type=InteractionType.WATCH,
+            interaction_action=InteractionAction.WATCH_START,
             interaction_value=None,
             timestamp=self.timestamp,
             session_id="session-1",
@@ -213,6 +243,7 @@ class DynamoDBRepositoryTests(unittest.TestCase):
             repository.get("user-1", interaction.interaction_key),
             interaction,
         )
+        self.assertEqual(repository.create(interaction), interaction)
         self.assertEqual(repository.list_by_user("user-1"), [interaction])
         self.assertEqual(repository.update(interaction), interaction)
         self.assertTrue(

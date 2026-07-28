@@ -76,13 +76,25 @@ The player is intentionally visual-only. Starting playback records a `watch`
 interaction for an authenticated user. A guest is redirected to `/login`
 without starting playback.
 
+## Interaction pipeline
+
+`useMovieActions` supports click, watch, rating, reaction, and share. It maps
+each UI action to the canonical `interaction_type`, `interaction_action`, and
+optional `interaction_value` fields. `interactionService` adds the session,
+timestamp, and a request-scoped `Idempotency-Key`.
+
+Network retries reuse the same request body and idempotency key. The backend
+therefore returns the same `event_id` and DynamoDB `interaction_key` instead of
+creating another interaction record.
+
 ## Frontend boundaries
 
 - Components render state and forward user events.
 - Hooks own navigation, asynchronous state, and playback behavior.
 - Services own API operations.
 - `apiClient` is the only frontend module that calls `fetch`.
-- Movie Detail is public; rating and simulated playback remain protected.
+- Movie Detail is public; rating, reaction, share, and simulated playback
+  actions remain protected.
 
 ## Local development
 

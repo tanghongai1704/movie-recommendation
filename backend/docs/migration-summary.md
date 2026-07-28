@@ -28,17 +28,17 @@ This phase changed backend domain names and persistence mapping only.
 - All movie identifiers are now `movie_id: str`.
 - All user identifiers are now `user_id: str`.
 - Movie response fields now match the Movies table.
-- Interaction records now use `interaction_type`, `interaction_value`,
-  `timestamp`, and `session_id`.
-- Interaction sort keys now use `timestamp#movie_id`.
+- Interaction records now use `event_id`, `interaction_type`,
+  `interaction_action`, `interaction_value`, `timestamp`, and `session_id`.
+- Interaction sort keys now use `timestamp#movie_id#event_id`.
 - Recommendation cache records now use `items`, `model_version`,
   `generated_at`, and `expire_at`.
 
 ## Removed from new persisted records
 
 - Movie aliases: `id`, `year`, `genre`, `rating`, `description`, `image_url`.
-- Interaction fields: `event_id`, `event_type`, `rating`, `metadata`,
-  `created_at`, `username`, `schema_version`.
+- Interaction fields: `event_type`, `rating`, `metadata`, `created_at`,
+  `username`, `schema_version`.
 - Cache fields: `movie_ids`, full `movies` snapshots, `cached_at`,
   `expires_at`, `provider`, and `schema_version`.
 
@@ -53,7 +53,6 @@ This phase changed backend domain names and persistence mapping only.
 - Interaction requests temporarily accept `rating` as an alias for
   `interaction_value`.
 - Numeric legacy movie IDs in interaction requests are normalized to strings.
-- Missing legacy `session_id` values receive `legacy-session`.
 - The old DynamoDB repository import path re-exports the new repository
   classes temporarily.
 
@@ -81,13 +80,15 @@ Before deploying the backend against existing data:
 
 1. Back up UserInteractions and RecommendationCache.
 2. Transform existing UserInteractions records into the canonical schema.
-3. Rebuild `interaction_key` as `timestamp#movie_id`.
-4. Transform cache records into normalized `items`.
-5. Remove duplicated movie snapshots from cache.
-6. Rename cache expiration to `expire_at`.
-7. Enable DynamoDB TTL on `expire_at`.
-8. Validate every referenced movie ID against Movies.
-9. Invalidate any record that cannot be migrated safely.
+3. Generate stable `event_id` values and map each record to an
+   `interaction_action`.
+4. Rebuild `interaction_key` as `timestamp#movie_id#event_id`.
+5. Transform cache records into normalized `items`.
+6. Remove duplicated movie snapshots from cache.
+7. Rename cache expiration to `expire_at`.
+8. Enable DynamoDB TTL on `expire_at`.
+9. Validate every referenced movie ID against Movies.
+10. Invalidate any record that cannot be migrated safely.
 
 ## Deferred intentionally
 

@@ -85,12 +85,18 @@ no User record.
 | Field | Type | Meaning |
 |---|---|---|
 | `user_id` | `str` | UserInteractions partition key |
-| `interaction_key` | `str` | Sort key formatted as `timestamp#movie_id` |
+| `interaction_key` | `str` | Sort key formatted as `timestamp#movie_id#event_id` |
+| `event_id` | `UUID` | API-generated idempotent event identifier |
 | `movie_id` | `str` | Movies reference |
-| `interaction_type` | `click \| watch \| rating` | Behavior category |
+| `interaction_type` | `click \| watch \| rating \| reaction \| share` | Behavior category |
+| `interaction_action` | `InteractionAction` | Concrete action within the category |
 | `interaction_value` | `float \| None` | Optional numeric behavior value |
 | `timestamp` | `datetime` | UTC event time |
 | `session_id` | `str` | Client session grouping key |
+
+`interaction_action` is validated against its type: click uses `open_detail`;
+watch uses `start`, `progress`, or `complete`; rating uses `submit`; reaction
+uses `like` or `dislike`; and share uses `native_share` or `copy_link`.
 
 ### RecommendationCache
 
@@ -142,8 +148,7 @@ stored separately in Users.
 | `event_type` | `interaction_type` | Accepted temporarily as request-only alias |
 | `rating` on an interaction | `interaction_value` | Accepted temporarily as request-only alias |
 | `created_at` on an interaction | `timestamp` | Removed from new records |
-| `event_id` | none | Removed from new records |
-| `metadata` | none | Ignored for legacy interaction requests |
+| `metadata` | none | Rejected from canonical interaction requests |
 | `movie_ids` in cache | `items[].movie_id` | Replaced |
 | `movies` in cache | none | Removed; metadata comes from Movies |
 | `cached_at` | `generated_at` | Replaced |

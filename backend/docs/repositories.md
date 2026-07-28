@@ -70,7 +70,7 @@ used by the current mock provider. It is not a DynamoDB table implementation.
 
 | Method | Persistence operation |
 |---|---|
-| `create(interaction)` | Conditionally create one interaction |
+| `create(interaction)` | Conditionally create one interaction; return the identical existing item on an idempotent retry |
 | `get(user_id, interaction_key)` | Read one interaction |
 | `list_by_user(user_id)` | Query all interaction pages for one user |
 | `update(interaction)` | Conditionally replace an existing interaction |

@@ -22,6 +22,7 @@ export function useMovieActions(userState: AuthUserState, navigate: Navigate) {
             }
             void interactionState.recordInteraction({
                 interaction_type: 'click',
+                interaction_action: 'open_detail',
                 movie_id: movieId,
             });
         },
@@ -36,6 +37,7 @@ export function useMovieActions(userState: AuthUserState, navigate: Navigate) {
             }
             void interactionState.recordInteraction({
                 interaction_type: 'watch',
+                interaction_action: 'start',
                 movie_id: movieId,
             });
             return true;
@@ -55,8 +57,49 @@ export function useMovieActions(userState: AuthUserState, navigate: Navigate) {
             }
             void interactionState.recordInteraction({
                 interaction_type: 'rating',
+                interaction_action: 'submit',
                 movie_id: movieId,
                 interaction_value: rating,
+            });
+            return true;
+        },
+        [
+            handleAuthenticationRequired,
+            interactionState.recordInteraction,
+            userState,
+        ],
+    );
+
+    const reactToMovie = useCallback(
+        (movieId: string, reaction: 'like' | 'dislike'): boolean => {
+            if (userState === 'guest') {
+                handleAuthenticationRequired();
+                return false;
+            }
+            void interactionState.recordInteraction({
+                interaction_type: 'reaction',
+                interaction_action: reaction,
+                movie_id: movieId,
+            });
+            return true;
+        },
+        [
+            handleAuthenticationRequired,
+            interactionState.recordInteraction,
+            userState,
+        ],
+    );
+
+    const shareMovie = useCallback(
+        (movieId: string): boolean => {
+            if (userState === 'guest') {
+                handleAuthenticationRequired();
+                return false;
+            }
+            void interactionState.recordInteraction({
+                interaction_type: 'share',
+                interaction_action: 'copy_link',
+                movie_id: movieId,
             });
             return true;
         },
@@ -72,5 +115,7 @@ export function useMovieActions(userState: AuthUserState, navigate: Navigate) {
         clickMovie,
         watchMovie,
         rateMovie,
+        reactToMovie,
+        shareMovie,
     };
 }

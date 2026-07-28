@@ -12,7 +12,9 @@
 3. `RecommendationService` checks DynamoDB for a valid per-user, per-scenario cache entry.
 4. Cache hits return the stored ordered movie IDs and snapshots without invoking the provider.
 5. Cache misses or expired/invalid entries invoke `MockRecommendationProvider` and write the result back to DynamoDB.
-6. The ML package is currently a service-oriented scaffold and is not yet connected to a production model.
+6. Protected interaction actions pass through the idempotent interaction
+   pipeline and are stored in UserInteractions for future ML consumption.
+7. The ML package is currently a service-oriented scaffold and is not yet connected to a production model.
 
 ## Request path example
 
@@ -26,3 +28,6 @@ Browser -> React UI -> API client -> FastAPI route -> service -> repository/prov
 - Backend: REST API, JWT authentication, service layer, repository abstraction
 - ML: future training/inference scaffolding
 - Infrastructure: Docker Compose and deployment workflow
+
+See [Interaction Pipeline](interaction-pipeline.md) for the write and retry
+sequence diagrams.

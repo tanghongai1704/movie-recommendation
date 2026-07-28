@@ -168,6 +168,78 @@ class AuthenticationHTTPFlowTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), movie)
 
+    def test_interaction_retry_reuses_event_id_and_storage_key(self) -> None:
+        register = self.client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "interaction@example.com",
+                "username": "interaction-user",
+                "password": "password123",
+            },
+        )
+        self.assertEqual(register.status_code, 201)
+        token = register.json()["access_token"]
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Idempotency-Key": "interaction-request-00000001",
+        }
+        payload = {
+            "interaction_type": "reaction",
+            "interaction_action": "like",
+            "interaction_value": None,
+            "movie_id": "265330",
+            "timestamp": "2026-07-28T12:00:00Z",
+            "session_id": "session-1",
+        }
+
+        first = self.client.post(
+            "/api/v1/users/me/interactions",
+            headers=headers,
+            json=payload,
+        )
+        retry = self.client.post(
+            "/api/v1/users/me/interactions",
+            headers=headers,
+            json=payload,
+        )
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(retry.status_code, 201)
+        self.assertEqual(first.json(), retry.json())
+        interaction = first.json()
+        self.assertEqual(interaction["interaction_type"], "reaction")
+        self.assertEqual(interaction["interaction_action"], "like")
+        self.assertIn(interaction["event_id"], interaction["interaction_key"])
+        self.assertEqual(
+            len(TABLES["UserInteractions"].items),
+            1,
+        )
+
+    def test_interaction_requires_idempotency_key(self) -> None:
+        register = self.client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "missing-key@example.com",
+                "username": "missing-key-user",
+                "password": "password123",
+            },
+        )
+        token = register.json()["access_token"]
+
+        response = self.client.post(
+            "/api/v1/users/me/interactions",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "interaction_type": "share",
+                "interaction_action": "copy_link",
+                "movie_id": "265330",
+                "timestamp": "2026-07-28T12:00:00Z",
+                "session_id": "session-1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)
+
     def test_legacy_seed_login_does_not_rewrite_users_item(self) -> None:
         TABLES["Users"].put_item(
             Item={

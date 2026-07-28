@@ -11,7 +11,8 @@ the five DynamoDB tables used by the movie recommendation system.
 - expose canonical movie and recommendation response fields
 - serve valid recommendation-cache entries before invoking the provider
 - enrich cached movie references from the Movies repository
-- record click, watch, and rating behavior in canonical DynamoDB records
+- record click, watch, rating, reaction, and share behavior in canonical
+  idempotent DynamoDB records
 
 ## Architecture
 
@@ -50,6 +51,9 @@ table layout, CRUD contracts, configuration, and boundary rules.
 See [Authentication Flow](../docs/architecture/authentication-flow.md) for user
 states, JWT middleware, protected routes, and frontend redirects.
 
+See [Interaction Pipeline](../docs/architecture/interaction-pipeline.md) for
+the event contract, retry guarantees, and sequence diagrams.
+
 ## Data flow
 
 ### Movie metadata
@@ -74,13 +78,15 @@ remains owned by Movies.
 
 ```text
 InteractionCreate
+  -> API generates deterministic event_id
   -> InteractionService
   -> UserInteraction
   -> UserInteractionsRepository
 ```
 
 InteractionService records behavior only and does not invoke recommendation
-logic.
+logic. The repository uses a conditional create so an identical retry resolves
+to the existing item instead of creating a duplicate.
 
 ## Field naming convention
 

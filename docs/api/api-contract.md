@@ -8,6 +8,12 @@ Protected endpoints require:
 Authorization: Bearer <access_token>
 ```
 
+Interaction writes additionally require:
+
+```http
+Idempotency-Key: <unique-request-key>
+```
+
 Validation and application errors use FastAPI's canonical `detail` field:
 
 ```json
@@ -27,8 +33,9 @@ Validation and application errors use FastAPI's canonical `detail` field:
 | Rate, like, share, watchlist actions | No | Yes | Yes |
 | Personalized recommendations | No | No | Yes |
 
-Like, share, and watchlist APIs are not currently product endpoints. When
-introduced, they must use the same registered-user dependency as interactions.
+Reaction and share events use the protected interaction endpoint. Watchlist is
+not currently a product endpoint and must use the same registered-user
+dependency when introduced.
 
 ## Authentication
 
@@ -223,27 +230,55 @@ Request:
 ```json
 {
   "interaction_type": "rating",
+  "interaction_action": "submit",
   "movie_id": "1",
   "interaction_value": 4.5,
+  "timestamp": "2026-07-28T08:10:00Z",
   "session_id": "web-session-id"
 }
 ```
 
-Supported interaction types: `click`, `watch`, `rating`.
+Supported type/action combinations:
+
+| `interaction_type` | Allowed `interaction_action` |
+|---|---|
+| `click` | `open_detail` |
+| `watch` | `start`, `progress`, `complete` |
+| `rating` | `submit` |
+| `reaction` | `like`, `dislike` |
+| `share` | `native_share`, `copy_link` |
+
+`interaction_value` is required for rating and must be between 0.5 and 5.0.
+For watch events it may contain a non-negative progress value.
 
 Response: `201 Created`
 
 ```json
 {
   "user_id": "a9a24f96-a3eb-449f-87f5-a4f43e79de19",
-  "interaction_key": "2026-07-28T08:10:00Z#1",
+  "interaction_key": "2026-07-28T08:10:00.000Z#1#f54f347c-d55f-57f8-a46f-61832bd53484",
+  "event_id": "f54f347c-d55f-57f8-a46f-61832bd53484",
   "movie_id": "1",
   "interaction_type": "rating",
+  "interaction_action": "submit",
   "interaction_value": 4.5,
   "timestamp": "2026-07-28T08:10:00Z",
   "session_id": "web-session-id"
 }
 ```
+
+The API generates `event_id` from the authenticated user, idempotency key, and
+canonical request payload. Repeating the same request with the same
+`Idempotency-Key` returns the same `event_id` and `interaction_key` and leaves
+only one DynamoDB item. Clients must reuse both the header and request
+timestamp during retries.
+
+Status codes:
+
+- `201` interaction stored or identical retry resolved
+- `401` unauthenticated/invalid JWT
+- `422` missing idempotency key or invalid interaction fields
+- `503` persistence unavailable
 
 ## Personalized recommendations
 

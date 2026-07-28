@@ -6,9 +6,12 @@ interface MovieDetailPageProps {
     movie: Movie | null;
     isLoading: boolean;
     error: string | null;
+    interactionError: string | null;
     onBack: () => void;
     onWatch: (movieId: string) => boolean;
     onRate: (movieId: string, rating: number) => boolean;
+    onReact: (movieId: string, reaction: 'like' | 'dislike') => boolean;
+    onShare: (movieId: string) => boolean;
 }
 
 interface DetailListProps {
@@ -74,9 +77,12 @@ function MovieDetailPage({
     movie,
     isLoading,
     error,
+    interactionError,
     onBack,
     onWatch,
     onRate,
+    onReact,
+    onShare,
 }: MovieDetailPageProps) {
     const playMovie = useCallback(
         () => (movie ? onWatch(movie.movie_id) : false),
@@ -315,13 +321,35 @@ function MovieDetailPage({
                         </div>
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={() => onRate(movie.movie_id, 5)}
-                        className="mt-8 rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold transition hover:border-red-500/50 hover:bg-red-500/10"
-                    >
-                        Rate 5 stars
-                    </button>
+                    {interactionError && (
+                        <p className="mt-8 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+                            {interactionError}
+                        </p>
+                    )}
+
+                    <div className="mt-8 flex flex-wrap gap-3">
+                        <button
+                            type="button"
+                            onClick={() => onRate(movie.movie_id, 5)}
+                            className="rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold transition hover:border-red-500/50 hover:bg-red-500/10"
+                        >
+                            Rate 5 stars
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onReact(movie.movie_id, 'like')}
+                            className="rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold transition hover:border-red-500/50 hover:bg-red-500/10"
+                        >
+                            Like
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onShare(movie.movie_id)}
+                            className="rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold transition hover:border-red-500/50 hover:bg-red-500/10"
+                        >
+                            Share
+                        </button>
+                    </div>
                 </div>
 
                 <aside className="rounded-3xl border border-white/10 bg-zinc-900/60 p-6">

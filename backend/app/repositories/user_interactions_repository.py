@@ -1,7 +1,10 @@
 from typing import Any, Optional
 
 from app.models.user_interaction import UserInteraction
-from app.repositories.dynamodb_base import BaseDynamoDBRepository
+from app.repositories.dynamodb_base import (
+    BaseDynamoDBRepository,
+    DynamoDBRepositoryError,
+)
 
 
 class UserInteractionsRepository(BaseDynamoDBRepository):
@@ -21,11 +24,22 @@ class UserInteractionsRepository(BaseDynamoDBRepository):
         )
 
     def create(self, interaction: UserInteraction) -> UserInteraction:
-        return self._create(
-            interaction,
-            partition_key="user_id",
-            sort_key="interaction_key",
-        )
+        try:
+            return self._create(
+                interaction,
+                partition_key="user_id",
+                sort_key="interaction_key",
+            )
+        except DynamoDBRepositoryError as exc:
+            if not self._is_conditional_conflict(exc):
+                raise
+            existing = self.get(
+                interaction.user_id,
+                interaction.interaction_key,
+            )
+            if existing != interaction:
+                raise
+            return existing
 
     def get(
         self,
@@ -61,3 +75,10 @@ class UserInteractionsRepository(BaseDynamoDBRepository):
                 "interaction_key": interaction_key,
             }
         )
+
+    @staticmethod
+    def _is_conditional_conflict(exc: DynamoDBRepositoryError) -> bool:
+        cause = exc.__cause__
+        response = getattr(cause, "response", {})
+        error = response.get("Error", {}) if isinstance(response, dict) else {}
+        return error.get("Code") == "ConditionalCheckFailedException"

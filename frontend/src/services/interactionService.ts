@@ -19,13 +19,33 @@ function getSessionId(): string {
 }
 
 export const interactionService = {
-    createInteraction(interaction: CreateInteractionInput): Promise<Interaction> {
-        return apiClient.post<Interaction, CreateInteractionRequest>(
-            '/users/me/interactions',
-            {
-                ...interaction,
-                session_id: getSessionId(),
-            },
-        );
+    async createInteraction(
+        interaction: CreateInteractionInput,
+    ): Promise<Interaction> {
+        const idempotencyKey = window.crypto.randomUUID();
+        const request: CreateInteractionRequest = {
+            ...interaction,
+            timestamp: new Date().toISOString(),
+            session_id: getSessionId(),
+        };
+        const send = (): Promise<Interaction> =>
+            apiClient.post<Interaction, CreateInteractionRequest>(
+                '/users/me/interactions',
+                request,
+                {
+                    headers: {
+                        'Idempotency-Key': idempotencyKey,
+                    },
+                },
+            );
+
+        try {
+            return await send();
+        } catch (error) {
+            if (error instanceof TypeError) {
+                return send();
+            }
+            throw error;
+        }
     },
 };

@@ -1,5 +1,6 @@
 import unittest
 from datetime import datetime, timezone
+from uuid import UUID
 
 from pydantic import ValidationError
 
@@ -10,7 +11,12 @@ from app.models.recommendation_cache import (
     RecommendationCacheItem,
 )
 from app.models.user import User, UserSettings
-from app.models.user_interaction import InteractionType, UserInteraction
+from app.models.user_interaction import (
+    InteractionAction,
+    InteractionType,
+    UserInteraction,
+    format_interaction_timestamp,
+)
 
 
 class DomainModelTests(unittest.TestCase):
@@ -99,11 +105,17 @@ class DomainModelTests(unittest.TestCase):
 
     def test_interaction_key_and_fields_match_table_contract(self) -> None:
         timestamp = datetime.now(timezone.utc)
+        event_id = UUID("00000000-0000-4000-8000-000000000001")
         interaction = UserInteraction(
             user_id="user-1",
-            interaction_key=f"{timestamp.isoformat()}#movie-1",
+            interaction_key=(
+                f"{format_interaction_timestamp(timestamp)}"
+                f"#movie-1#{event_id}"
+            ),
+            event_id=event_id,
             movie_id="movie-1",
             interaction_type=InteractionType.CLICK,
+            interaction_action=InteractionAction.OPEN_DETAIL,
             interaction_value=None,
             timestamp=timestamp,
             session_id="session-1",
@@ -114,13 +126,23 @@ class DomainModelTests(unittest.TestCase):
             {
                 "user_id",
                 "interaction_key",
+                "event_id",
                 "movie_id",
                 "interaction_type",
+                "interaction_action",
                 "interaction_value",
                 "timestamp",
                 "session_id",
             },
         )
+
+        with self.assertRaises(ValidationError):
+            UserInteraction.model_validate(
+                {
+                    **interaction.model_dump(),
+                    "interaction_key": "invalid-key",
+                }
+            )
 
     def test_cache_contains_references_without_movie_metadata(self) -> None:
         cache = RecommendationCache(

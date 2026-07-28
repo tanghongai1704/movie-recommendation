@@ -103,6 +103,9 @@ function App() {
                 onBack={() => navigate('home')}
                 onWatch={movieActions.watchMovie}
                 onRate={movieActions.rateMovie}
+                onReact={movieActions.reactToMovie}
+                onShare={movieActions.shareMovie}
+                interactionError={movieActions.error}
             />
         );
     }
