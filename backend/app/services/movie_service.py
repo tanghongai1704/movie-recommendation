@@ -15,10 +15,12 @@ class MovieService:
         self._repository = repository
         self._recommendation_service = recommendation_service
 
-    def get_all_movies(self) -> list[MovieResponse]:
+    def get_all_movies(self, limit: int = 24) -> list[MovieResponse]:
+        if limit <= 0:
+            raise ValueError("limit must be a positive integer")
         return [
             MovieResponse.model_validate(movie.model_dump())
-            for movie in self._repository.list_all()
+            for movie in self._repository.list_all(limit=limit)
         ]
 
     def get_movie_by_id(self, movie_id: str) -> Optional[MovieResponse]:

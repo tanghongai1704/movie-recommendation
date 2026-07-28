@@ -152,16 +152,24 @@ class BaseDynamoDBRepository:
         self,
         *,
         model_type: type[DomainModel],
+        limit: int | None = None,
     ) -> list[DomainModel]:
+        if limit is not None and limit <= 0:
+            raise ValueError("scan limit must be a positive integer")
+
         try:
             records: list[DomainModel] = []
             scan_options: dict[str, Any] = {}
             while True:
+                if limit is not None:
+                    scan_options["Limit"] = limit - len(records)
                 response = self._table.scan(**scan_options)
                 records.extend(
                     model_type.model_validate(item)
                     for item in response.get("Items", [])
                 )
+                if limit is not None and len(records) >= limit:
+                    return records[:limit]
                 last_key = response.get("LastEvaluatedKey")
                 if not last_key:
                     return records

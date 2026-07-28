@@ -55,12 +55,12 @@ export function useAuth() {
             const user = await authService.getCurrentUser();
             setState(getAuthenticatedState(user));
             return user;
-        } catch (error) {
+        } catch {
             authService.clearSession();
-            setState({
-                ...guestState,
-                error: getErrorMessage(error, 'Your session has expired.'),
-            });
+            // Session restoration is best-effort. A stale token or a backend
+            // restart should open the public experience without surfacing a
+            // raw transport error on the login page.
+            setState(guestState);
             return null;
         }
     }, []);

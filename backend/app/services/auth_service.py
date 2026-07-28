@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import hmac
 from datetime import datetime, timezone
 from typing import Optional, Protocol
 from uuid import uuid4
 
 from app.core.security import PasswordHashError, PasswordHasher
-from app.models.user import User
+from app.models.user import User, UserSettings
 
 
 class UserStore(Protocol):
@@ -48,9 +49,11 @@ class AuthService:
         *,
         users: UserStore,
         password_hasher: PasswordHasher,
+        allow_legacy_dev_login: bool = False,
     ) -> None:
         self._users = users
         self._password_hasher = password_hasher
+        self._allow_legacy_dev_login = allow_legacy_dev_login
         self._dummy_password_hash = password_hasher.hash_password(
             "authentication-timing-placeholder"
         )
@@ -72,19 +75,26 @@ class AuthService:
         now = datetime.now(timezone.utc)
         user = User(
             user_id=str(uuid4()),
-            email=email.casefold(),
-            username=username,
-            password_hash=self._password_hasher.hash_password(password),
-            created_at=now,
-            onboarding_genres=[],
-            onboarding_completed=False,
-            last_active_at=now,
+            recent_movie_ids=[],
+            schema_version=2,
+            onboarding_genres=None,
+            user_settings=UserSettings(
+                email=email.casefold(),
+                username=username,
+                password_hash=self._password_hasher.hash_password(password),
+                created_at=now,
+            ),
         )
         return self._users.create(user)
 
     def authenticate(self, *, identity: str, password: str) -> User:
         user = self._find_by_identity(identity)
-        encoded_hash = user.password_hash if user else self._dummy_password_hash
+        encoded_hash = (
+            user.password_hash
+            if user is not None
+            and self._password_hasher.is_supported_hash(user.password_hash)
+            else self._dummy_password_hash
+        )
         try:
             valid_password = self._password_hasher.verify_password(
                 password,
@@ -93,13 +103,15 @@ class AuthService:
         except PasswordHashError:
             valid_password = False
 
+        if user is not None and not valid_password:
+            valid_password = self._verify_legacy_dev_password(user, password)
+
         if user is None or not valid_password:
             raise InvalidCredentialsError("Invalid credentials")
 
-        active_user = user.model_copy(
-            update={"last_active_at": datetime.now(timezone.utc)}
-        )
-        return self._users.update(active_user)
+        # Login is intentionally read-only because the deployed Users schema
+        # has no last_active_at field and must not be rewritten during auth.
+        return user
 
     def get_user(self, user_id: str) -> User:
         user = self._users.get(user_id)
@@ -125,13 +137,13 @@ class AuthService:
             exclude_user_id=user_id,
         )
 
-        updated = user.model_copy(
+        settings = user.user_settings.model_copy(
             update={
                 "email": next_email,
                 "username": next_username,
-                "last_active_at": datetime.now(timezone.utc),
             }
         )
+        updated = user.model_copy(update={"user_settings": settings})
         return self._users.update(updated)
 
     def complete_onboarding(
@@ -144,14 +156,37 @@ class AuthService:
         updated = user.model_copy(
             update={
                 "onboarding_genres": onboarding_genres,
-                "onboarding_completed": True,
-                "last_active_at": datetime.now(timezone.utc),
             }
         )
         return self._users.update(updated)
 
+    def _verify_legacy_dev_password(self, user: User, password: str) -> bool:
+        """Allow only the deterministic schema-v2 seed credential shape."""
+
+        if not self._allow_legacy_dev_login or user.schema_version != 2:
+            return False
+
+        expected_username = f"{user.user_id}#username"
+        expected_email = f"{user.user_id}@email.com"
+        expected_password = f"{user.user_id}#pass"
+        return (
+            hmac.compare_digest(user.username, expected_username)
+            and hmac.compare_digest(user.email.casefold(), expected_email.casefold())
+            and hmac.compare_digest(user.password_hash, expected_password)
+            and hmac.compare_digest(password, expected_password)
+        )
+
     def _find_by_identity(self, identity: str) -> User | None:
         normalized = identity.casefold()
+        seed_user_id = self._seed_user_id_from_identity(normalized)
+        if seed_user_id is not None:
+            seed_user = self._users.get(seed_user_id)
+            if seed_user is not None and (
+                seed_user.username.casefold() == normalized
+                or seed_user.email.casefold() == normalized
+            ):
+                return seed_user
+
         return next(
             (
                 user
@@ -161,6 +196,16 @@ class AuthService:
             ),
             None,
         )
+
+    @staticmethod
+    def _seed_user_id_from_identity(identity: str) -> str | None:
+        """Resolve deterministic seed identities without scanning Users."""
+
+        for suffix in ("#username", "@email.com"):
+            if identity.endswith(suffix):
+                user_id = identity[: -len(suffix)]
+                return user_id or None
+        return None
 
     @staticmethod
     def _ensure_identity_available(

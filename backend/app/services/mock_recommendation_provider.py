@@ -1,6 +1,9 @@
 from typing import Optional
 
-from app.repositories.movie_repository import InMemoryMovieRepository
+from app.repositories.movie_repository import (
+    InMemoryMovieRepository,
+    MovieRepository,
+)
 from app.schemas.movie import MovieResponse
 from app.services.recommendation_provider import RecommendationProvider
 
@@ -15,14 +18,14 @@ class RecommendationMovie(MovieResponse):
 class MockRecommendationProvider(RecommendationProvider):
     """Temporary mock provider that simulates future ML inference."""
 
-    def __init__(self, repository: Optional[InMemoryMovieRepository] = None) -> None:
+    def __init__(self, repository: Optional[MovieRepository] = None) -> None:
         self._repository = repository or InMemoryMovieRepository()
 
     def get_recommendations(
         self,
         user_id: Optional[str] = None,
     ) -> list[MovieResponse]:
-        movies = self._repository.list_all()
+        movies = self._repository.list_all(limit=10)
         scores = [8.9, 8.4, 7.9]
         return [
             RecommendationMovie(

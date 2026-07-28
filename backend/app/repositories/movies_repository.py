@@ -30,8 +30,8 @@ class MoviesRepository(BaseDynamoDBRepository, MovieRepository):
             model_type=Movie,
         )
 
-    def list_all(self) -> list[Movie]:
-        return self._scan_all(model_type=Movie)
+    def list_all(self, limit: int | None = None) -> list[Movie]:
+        return self._scan_all(model_type=Movie, limit=limit)
 
     def update(self, movie: Movie) -> Movie:
         return self._update(movie, partition_key="movie_id")

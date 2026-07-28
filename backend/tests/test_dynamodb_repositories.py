@@ -8,7 +8,7 @@ from app.models.recommendation_cache import (
     RecommendationCache,
     RecommendationCacheItem,
 )
-from app.models.user import User
+from app.models.user import User, UserSettings
 from app.models.user_interaction import InteractionType, UserInteraction
 from app.repositories.movies_repository import MoviesRepository
 from app.repositories.popular_movies_repository import PopularMoviesRepository
@@ -70,8 +70,10 @@ class FakeDynamoDBTable:
         self.items = [item for item in self.items if not self._matches(item, Key)]
         return {"Attributes": existing} if existing is not None else {}
 
-    def scan(self, **_: Any) -> dict[str, Any]:
-        return {"Items": list(self.items)}
+    def scan(self, **options: Any) -> dict[str, Any]:
+        limit = options.get("Limit")
+        items = self.items if limit is None else self.items[:limit]
+        return {"Items": list(items)}
 
     def query(self, **options: Any) -> dict[str, Any]:
         partition_key = options["ExpressionAttributeNames"]["#pk"]
@@ -89,9 +91,14 @@ class DynamoDBRepositoryTests(unittest.TestCase):
     def setUp(self) -> None:
         self.timestamp = datetime(2026, 7, 28, tzinfo=timezone.utc)
 
-    def make_movie(self, *, title: str = "Example") -> Movie:
+    def make_movie(
+        self,
+        *,
+        movie_id: str = "movie-1",
+        title: str = "Example",
+    ) -> Movie:
         return Movie(
-            movie_id="movie-1",
+            movie_id=movie_id,
             title=title,
             release_year=2026,
             genres=["Drama"],
@@ -126,6 +133,19 @@ class DynamoDBRepositoryTests(unittest.TestCase):
         self.assertTrue(repository.delete("movie-1"))
         self.assertIsNone(repository.get("movie-1"))
 
+    def test_movies_repository_applies_read_limit(self) -> None:
+        repository = MoviesRepository(
+            table_name="movies-test",
+            region_name="test-region",
+            table=FakeDynamoDBTable(),
+        )
+        first = self.make_movie(movie_id="movie-1")
+        second = self.make_movie(movie_id="movie-2")
+        repository.create(first)
+        repository.create(second)
+
+        self.assertEqual(repository.list_all(limit=1), [first])
+
     def test_popular_movies_repository_crud(self) -> None:
         repository = PopularMoviesRepository(
             table_name="popular-test",
@@ -155,13 +175,15 @@ class DynamoDBRepositoryTests(unittest.TestCase):
         )
         user = User(
             user_id="user-1",
-            email="user@example.com",
-            username="example",
-            password_hash="hash",
-            created_at=self.timestamp,
+            recent_movie_ids=["movie-1"],
+            schema_version=2,
             onboarding_genres=["Drama"],
-            onboarding_completed=False,
-            last_active_at=self.timestamp,
+            user_settings=UserSettings(
+                email="user@example.com",
+                username="example",
+                password_hash="hash",
+                created_at=self.timestamp,
+            ),
         )
 
         self.assertEqual(repository.create(user), user)

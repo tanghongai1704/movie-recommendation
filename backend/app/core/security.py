@@ -23,9 +23,15 @@ class TokenValidationError(ValueError):
 class PasswordHasher:
     """PBKDF2-HMAC-SHA256 password hashing with a unique random salt."""
 
-    algorithm = "pbkdf2_sha256"
+    algorithm = "pbkdf2_hmac_sha256"
+    supported_algorithms = frozenset(
+        {
+            algorithm,
+            "pbkdf2_sha256",
+        }
+    )
 
-    def __init__(self, *, iterations: int = 600_000) -> None:
+    def __init__(self, *, iterations: int = 10_000) -> None:
         if iterations < 10_000:
             raise ValueError("password hash iterations must be at least 10000")
         self._iterations = iterations
@@ -57,7 +63,7 @@ class PasswordHasher:
                 "$",
                 maxsplit=3,
             )
-            if algorithm != self.algorithm:
+            if algorithm not in self.supported_algorithms:
                 raise PasswordHashError("unsupported password hash algorithm")
 
             iterations = int(iterations_text)
@@ -79,6 +85,13 @@ class PasswordHasher:
             dklen=len(expected_digest),
         )
         return hmac.compare_digest(actual_digest, expected_digest)
+
+    @classmethod
+    def is_supported_hash(cls, encoded_hash: str) -> bool:
+        """Return whether a value declares one of the supported PBKDF2 tags."""
+
+        algorithm, separator, _ = encoded_hash.partition("$")
+        return separator == "$" and algorithm in cls.supported_algorithms
 
     @staticmethod
     def _encode(value: bytes) -> str:

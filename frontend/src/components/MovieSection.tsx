@@ -41,6 +41,10 @@ function MovieSection({
                             <img
                                 src={movie.poster_path || fallbackImage}
                                 alt={movie.title}
+                                loading="lazy"
+                                onError={(event) => {
+                                    event.currentTarget.src = fallbackImage;
+                                }}
                                 className="h-56 w-full object-cover transition duration-300 group-hover:scale-105"
                             />
                         </button>

@@ -56,7 +56,7 @@ class CompleteOnboardingRequest(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
-    onboarding_genres: list[str] = Field(min_length=1, max_length=10)
+    onboarding_genres: list[str] = Field(min_length=1, max_length=3)
 
     @field_validator("onboarding_genres")
     @classmethod

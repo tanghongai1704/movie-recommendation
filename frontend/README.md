@@ -11,6 +11,9 @@ interactions, onboarding, profiles, and Netflix-style movie discovery.
 - call the backend only through the centralized API client and feature services
 - show loading and error states for API responses
 
+The initial public catalog uses the backend's bounded default of 24 Movies
+records instead of requesting the full DynamoDB table.
+
 ## Movie detail
 
 The public route `/movies/{movie_id}` loads canonical movie data through:
@@ -43,6 +46,19 @@ The page displays every Movies field:
 
 Missing scalar or collection values receive an explicit unavailable state. A
 missing poster uses a local SVG placeholder.
+
+TMDB stores `poster_path` as a relative file path such as
+`/3LdEtd3IMJtw4zitgWZpIc60UFX.jpg`. `movieService` converts that value to a
+browser-ready URL before returning movie data to hooks:
+
+```text
+https://image.tmdb.org/t/p/w500/3LdEtd3IMJtw4zitgWZpIc60UFX.jpg
+```
+
+Absolute poster URLs remain unchanged. Broken or missing images fall back to
+the local placeholder. Override the image base and size with
+`VITE_TMDB_POSTER_BASE_URL`; the default is
+`https://image.tmdb.org/t/p/w500`.
 
 ## Simulated player
 
@@ -80,3 +96,5 @@ npm run dev
 
 - `VITE_API_URL` — backend API base URL, default
   `http://127.0.0.1:8000/api/v1`
+- `VITE_TMDB_POSTER_BASE_URL` — TMDB image base and size, default
+  `https://image.tmdb.org/t/p/w500`

@@ -12,6 +12,7 @@ class PasswordHasherTests(unittest.TestCase):
         second = self.hasher.hash_password("correct horse battery staple")
 
         self.assertNotEqual(first, second)
+        self.assertTrue(first.startswith("pbkdf2_hmac_sha256$10000$"))
         self.assertTrue(
             self.hasher.verify_password(
                 "correct horse battery staple",
@@ -20,6 +21,22 @@ class PasswordHasherTests(unittest.TestCase):
         )
         self.assertFalse(self.hasher.verify_password("wrong password", first))
         self.assertNotIn("correct horse battery staple", first)
+
+    def test_verifies_hashes_with_the_previous_backend_algorithm_tag(self) -> None:
+        current_hash = self.hasher.hash_password("migration-compatible password")
+        previous_hash = current_hash.replace(
+            "pbkdf2_hmac_sha256$",
+            "pbkdf2_sha256$",
+            1,
+        )
+
+        self.assertTrue(self.hasher.is_supported_hash(previous_hash))
+        self.assertTrue(
+            self.hasher.verify_password(
+                "migration-compatible password",
+                previous_hash,
+            )
+        )
 
 
 class JWTServiceTests(unittest.TestCase):

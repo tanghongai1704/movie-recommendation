@@ -1,3 +1,4 @@
+import copy
 import os
 import sys
 import types
@@ -55,6 +56,7 @@ os.environ.update(
         "AWS_DYNAMODB_TABLE_INTERACTIONS": "UserInteractions",
         "AWS_DYNAMODB_TABLE_RECOMMENDATION_CACHE": "RecommendationCache",
         "PASSWORD_HASH_ITERATIONS": "10000",
+        "ALLOW_LEGACY_DEV_LOGIN": "True",
     }
 )
 sys.modules["boto3"] = types.SimpleNamespace(
@@ -98,6 +100,20 @@ class AuthenticationHTTPFlowTests(unittest.TestCase):
         )
         self.assertEqual(blocked.status_code, 403)
 
+        too_many_genres = self.client.put(
+            "/api/v1/users/me/onboarding",
+            headers=headers,
+            json={
+                "onboarding_genres": [
+                    "Drama",
+                    "Comedy",
+                    "Science Fiction",
+                    "Thriller",
+                ]
+            },
+        )
+        self.assertEqual(too_many_genres.status_code, 422)
+
         onboarding = self.client.put(
             "/api/v1/users/me/onboarding",
             headers=headers,
@@ -126,6 +142,58 @@ class AuthenticationHTTPFlowTests(unittest.TestCase):
             ).status_code,
             401,
         )
+
+    def test_movie_detail_reads_every_field_from_movies_table(self) -> None:
+        movie = {
+            "movie_id": "265330",
+            "title": "TMDB-backed movie",
+            "release_year": 2024,
+            "genres": ["Drama", "Thriller"],
+            "overview": "Canonical metadata loaded from the Movies table.",
+            "poster_path": "/3LdEtd3IMJtw4zitgWZpIc60UFX.jpg",
+            "vote_average": 7.8,
+            "vote_count": 1234,
+            "popularity": 42.5,
+            "runtime": 100,
+            "original_language": "en",
+            "companies": ["Example Pictures"],
+            "countries": ["United States"],
+            "actors": ["Actor One", "Actor Two"],
+            "directors": ["Director One"],
+        }
+        TABLES["Movies"].put_item(Item=movie)
+
+        response = self.client.get("/api/v1/movie/265330")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), movie)
+
+    def test_legacy_seed_login_does_not_rewrite_users_item(self) -> None:
+        TABLES["Users"].put_item(
+            Item={
+                "user_id": "1",
+                "recent_movie_ids": ["10", "20"],
+                "schema_version": 2,
+                "onboarding_genres": None,
+                "user_settings": {
+                    "email": "1@email.com",
+                    "username": "1#username",
+                    "password_hash": "1#pass",
+                    "created_at": "2020-01-01T00:00:00Z",
+                },
+            }
+        )
+        before_login = copy.deepcopy(TABLES["Users"].items)
+
+        response = self.client.post(
+            "/api/v1/auth/login",
+            json={"username": "1#username", "password": "1#pass"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["user"]["user_id"], "1")
+        self.assertEqual(response.json()["user"]["user_state"], "first_login")
+        self.assertEqual(TABLES["Users"].items, before_login)
 
 
 if __name__ == "__main__":

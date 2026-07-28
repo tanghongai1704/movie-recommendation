@@ -9,7 +9,7 @@ from app.models.recommendation_cache import (
     RecommendationCache,
     RecommendationCacheItem,
 )
-from app.models.user import User
+from app.models.user import User, UserSettings
 from app.models.user_interaction import InteractionType, UserInteraction
 
 
@@ -73,28 +73,29 @@ class DomainModelTests(unittest.TestCase):
         timestamp = datetime.now(timezone.utc)
         user = User(
             user_id="user-1",
-            email="user@example.com",
-            username="example",
-            password_hash="hashed-password",
-            created_at=timestamp,
+            recent_movie_ids=["movie-1"],
+            schema_version=2,
             onboarding_genres=["Drama"],
-            onboarding_completed=True,
-            last_active_at=timestamp,
+            user_settings=UserSettings(
+                email="user@example.com",
+                username="example",
+                password_hash="hashed-password",
+                created_at=timestamp,
+            ),
         )
 
         self.assertEqual(
             set(user.model_dump()),
             {
                 "user_id",
-                "email",
-                "username",
-                "password_hash",
-                "created_at",
+                "recent_movie_ids",
+                "schema_version",
                 "onboarding_genres",
-                "onboarding_completed",
-                "last_active_at",
+                "user_settings",
             },
         )
+        self.assertTrue(user.onboarding_completed)
+        self.assertEqual(user.username, "example")
 
     def test_interaction_key_and_fields_match_table_contract(self) -> None:
         timestamp = datetime.now(timezone.utc)

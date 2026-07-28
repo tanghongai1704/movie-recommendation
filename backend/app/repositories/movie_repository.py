@@ -6,7 +6,7 @@ from app.models.movie import Movie
 
 class MovieRepository(ABC):
     @abstractmethod
-    def list_all(self) -> list[Movie]:
+    def list_all(self, limit: int | None = None) -> list[Movie]:
         raise NotImplementedError
 
     @abstractmethod
@@ -80,8 +80,8 @@ class InMemoryMovieRepository(MovieRepository):
             ),
         ]
 
-    def list_all(self) -> list[Movie]:
-        return self._movies
+    def list_all(self, limit: int | None = None) -> list[Movie]:
+        return self._movies if limit is None else self._movies[:limit]
 
     def get(self, movie_id: str) -> Optional[Movie]:
         return next(

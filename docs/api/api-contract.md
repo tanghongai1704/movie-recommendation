@@ -165,7 +165,7 @@ Response: profile with:
 }
 ```
 
-At least one unique, non-empty genre is required.
+Between one and three unique, non-empty genres are required.
 
 ## Movies
 
@@ -174,7 +174,8 @@ At least one unique, non-empty genre is required.
 Auth: public
 
 Returns canonical Movies records. Guests use this endpoint without a fabricated
-identity or token.
+identity or token. The optional `limit` query parameter defaults to `24` and
+accepts values from `1` through `100`.
 
 ### GET `/movie/{movie_id}`
 
@@ -186,23 +187,27 @@ Movie response fields:
 
 ```json
 {
-  "movie_id": "1",
-  "title": "Midnight Horizon",
-  "release_year": 2025,
-  "genres": ["Science Fiction", "Thriller"],
-  "overview": "A brilliant pilot and a rogue AI race through a collapsing city.",
-  "poster_path": "https://example.com/poster.jpg",
-  "vote_average": 8.9,
-  "vote_count": 12400,
-  "popularity": 94.1,
-  "runtime": 132,
+  "movie_id": "265330",
+  "title": "Example title",
+  "release_year": 2024,
+  "genres": ["Drama", "Thriller"],
+  "overview": "Canonical overview from the Movies table.",
+  "poster_path": "/3LdEtd3IMJtw4zitgWZpIc60UFX.jpg",
+  "vote_average": 7.8,
+  "vote_count": 1234,
+  "popularity": 42.5,
+  "runtime": 100,
   "original_language": "en",
-  "companies": ["Northstar Pictures"],
+  "companies": ["Example Pictures"],
   "countries": ["United States"],
-  "actors": ["Avery Chen"],
-  "directors": ["Jordan Vale"]
+  "actors": ["Actor One"],
+  "directors": ["Director One"]
 }
 ```
+
+`poster_path` is persisted and returned unchanged from Movies. The frontend
+service resolves a relative TMDB path against its configured TMDB image base;
+the backend does not call TMDB or duplicate poster assets.
 
 ## Interactions
 

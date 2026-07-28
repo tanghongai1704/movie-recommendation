@@ -12,14 +12,16 @@
 
 ### Registered User
 
-A registered user has a Users record with a PBKDF2 password hash. Registered
-users are further classified by onboarding state.
+A registered user has a schema-version-2 Users record with account fields
+embedded in `user_settings`. New records contain a PBKDF2 password hash.
+Registered users are further classified by onboarding state.
 
 ### First Login
 
 - `onboarding_completed=false`
 - Receives a valid JWT after register or login.
 - Is routed to `/onboarding`.
+- Must select between one and three onboarding genres.
 - Can update profile and record interactions.
 - Cannot access personalized recommendations.
 
@@ -44,19 +46,36 @@ Register/Login form
   -> First Login or Returning User route
 ```
 
-Register creates a UUID `user_id`, a uniquely salted password hash, and an
-incomplete onboarding profile. Login accepts username or email and updates
-`last_active_at`.
+Register creates a UUID `user_id`, a uniquely salted password hash inside
+`user_settings.password_hash`, and an incomplete onboarding profile. Login
+accepts username or email and is read-only because the deployed Users schema
+does not persist `last_active_at`.
 
 ## Password security
 
 - Algorithm: PBKDF2-HMAC-SHA256
 - Random salt: 16 bytes per password
-- Default work factor: 600,000 iterations
+- Work factor: 10,000 iterations
 - Comparison: constant-time `hmac.compare_digest`
 - Storage format:
-  `pbkdf2_sha256$iterations$salt$digest`
-- Plaintext passwords never enter a repository or response DTO.
+  `pbkdf2_hmac_sha256$iterations$salt$digest`
+- New plaintext passwords are never persisted or returned by a response DTO.
+
+Development seed compatibility is disabled by default. If
+`ALLOW_LEGACY_DEV_LOGIN=true`, AuthService also accepts the exact deterministic
+schema-version-2 seed identity:
+
+- username: `<user_id>#username`
+- email: `<user_id>@email.com`
+- password: `<user_id>#pass`
+
+The fallback uses constant-time comparisons, rejects arbitrary plaintext
+records, and never rewrites DynamoDB. It must remain disabled outside the
+development seed environment.
+
+Deterministic seed usernames and emails resolve their embedded `user_id` with
+one Users `GetItem` before the generic identity lookup. This avoids scanning a
+large seed table and does not require a schema or index change.
 
 ## JWT security
 
@@ -133,5 +152,6 @@ revocation would require an approved persistence design.
 
 The immutable Users table has only `user_id` as its key and currently has no
 email or username index. AuthService performs case-insensitive uniqueness checks
-against existing Users records. Production-scale atomic uniqueness requires
-approved email/username lookup indexes or a separate identity provider.
+against embedded `user_settings` values. Production-scale atomic uniqueness
+requires approved email/username lookup indexes or a separate identity
+provider.

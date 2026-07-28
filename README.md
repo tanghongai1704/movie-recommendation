@@ -103,9 +103,10 @@ Required backend variables:
 - `AWS_DYNAMODB_TABLE_RECOMMENDATION_CACHE`
 
 Optional authentication settings include `JWT_ISSUER`, `JWT_AUDIENCE`,
-`JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, and `PASSWORD_HASH_ITERATIONS`. The frontend
-uses `VITE_API_URL`, defaulting to the local backend URL. AWS credentials follow
-the standard AWS SDK credential chain and must not be committed.
+`JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `PASSWORD_HASH_ITERATIONS`, and the
+development-only `ALLOW_LEGACY_DEV_LOGIN`. The frontend uses `VITE_API_URL`,
+defaulting to the local backend URL. AWS credentials follow the standard AWS
+SDK credential chain and must not be committed.
 
 ## AWS integration roadmap
 

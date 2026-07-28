@@ -26,7 +26,7 @@ def to_profile_response(user: User) -> UserProfileResponse:
         email=user.email,
         username=user.username,
         created_at=user.created_at,
-        onboarding_genres=user.onboarding_genres,
+        onboarding_genres=user.onboarding_genres or [],
         onboarding_completed=user.onboarding_completed,
         last_active_at=user.last_active_at,
         user_state=(

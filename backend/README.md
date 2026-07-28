@@ -125,7 +125,9 @@ PYTHONPATH=. python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reloa
 - `JWT_ISSUER` - JWT issuer, default `movie-recommendation-api`
 - `JWT_AUDIENCE` - JWT audience, default `movie-recommendation-frontend`
 - `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` - access-token lifetime, default `60`
-- `PASSWORD_HASH_ITERATIONS` - PBKDF2 work factor, default `600000`
+- `PASSWORD_HASH_ITERATIONS` - PBKDF2 work factor, default `10000`
+- `ALLOW_LEGACY_DEV_LOGIN` - development-only compatibility for deterministic
+  schema-v2 seed credentials; defaults to `False`
 - `AWS_REGION` - DynamoDB region
 - `AWS_DYNAMODB_TABLE_MOVIES` - Movies table name
 - `AWS_DYNAMODB_TABLE_POPULAR` - PopularMovies table name
@@ -136,3 +138,11 @@ PYTHONPATH=. python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reloa
 
 All AWS region and DynamoDB table variables are required. Repository
 implementations contain no fallback table names.
+
+`ALLOW_LEGACY_DEV_LOGIN` does not rewrite Users records. When enabled, it
+accepts only the exact `<user_id>#username`, `<user_id>@email.com`, and
+`<user_id>#pass` combination on a schema-version-2 seed record. New
+registrations always store PBKDF2 in the existing
+`user_settings.password_hash` field. Seed identities are resolved by their
+embedded `user_id` with `GetItem`, avoiding a full Users table scan without
+adding an index or changing the table schema.

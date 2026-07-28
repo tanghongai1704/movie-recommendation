@@ -10,6 +10,7 @@ const availableGenres = [
     'Science Fiction',
     'Thriller',
 ];
+const maximumGenres = 3;
 
 interface OnboardingPageProps {
     username: string;
@@ -32,7 +33,9 @@ function OnboardingPage({
         setSelectedGenres((current) =>
             current.includes(genre)
                 ? current.filter((item) => item !== genre)
-                : [...current, genre],
+                : current.length < maximumGenres
+                  ? [...current, genre]
+                  : current,
         );
     };
 
@@ -44,19 +47,26 @@ function OnboardingPage({
                 </p>
                 <h1 className="mt-3 text-4xl font-semibold">Welcome, {username}</h1>
                 <p className="mx-auto mt-4 max-w-lg leading-7 text-zinc-300">
-                    Select at least one genre to unlock personalized recommendations.
+                    Select between one and three genres to unlock personalized
+                    recommendations.
+                </p>
+                <p className="mt-3 text-sm font-medium text-zinc-400">
+                    {selectedGenres.length} / {maximumGenres} selected
                 </p>
 
                 <div className="mt-8 flex flex-wrap justify-center gap-3">
                     {availableGenres.map((genre) => {
                         const selected = selectedGenres.includes(genre);
+                        const selectionLimitReached =
+                            selectedGenres.length >= maximumGenres && !selected;
                         return (
                             <button
                                 key={genre}
                                 type="button"
                                 aria-pressed={selected}
+                                disabled={selectionLimitReached}
                                 onClick={() => toggleGenre(genre)}
-                                className={`rounded-full border px-4 py-2 text-sm transition ${
+                                className={`rounded-full border px-4 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-35 ${
                                     selected
                                         ? 'border-red-500 bg-red-500/20 text-red-100'
                                         : 'border-white/10 bg-black/20 text-zinc-300 hover:border-white/30'

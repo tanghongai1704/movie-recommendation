@@ -20,7 +20,10 @@ class Settings:
         os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "60")
     )
     PASSWORD_HASH_ITERATIONS = int(
-        os.getenv("PASSWORD_HASH_ITERATIONS", "600000")
+        os.getenv("PASSWORD_HASH_ITERATIONS", "10000")
+    )
+    ALLOW_LEGACY_DEV_LOGIN = (
+        os.getenv("ALLOW_LEGACY_DEV_LOGIN", "False").lower() == "true"
     )
     AWS_REGION = _required_environment_variable("AWS_REGION")
     AWS_DYNAMODB_TABLE_MOVIES = _required_environment_variable(

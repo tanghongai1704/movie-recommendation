@@ -59,16 +59,26 @@ PopularMovies never duplicates movie titles, posters, or other metadata.
 | Field | Type | Meaning |
 |---|---|---|
 | `user_id` | `str` | Users partition key |
+| `recent_movie_ids` | `list[str]` | Snapshot of up to 100 recently interacted movie IDs |
+| `schema_version` | `int` | Deployed Users item schema version |
+| `onboarding_genres` | `list[str] \| None` | Null before onboarding; selected genres afterwards |
+| `user_settings` | `UserSettings` | Embedded account and audit settings |
+
+`UserSettings` contains:
+
+| Field | Type | Meaning |
+|---|---|---|
 | `email` | `str` | Account email |
 | `username` | `str` | Public username |
-| `password_hash` | `str` | One-way credential hash |
+| `password_hash` | `str` | PBKDF2 credential or restricted legacy dev seed value |
 | `created_at` | `datetime` | UTC account creation time |
-| `onboarding_genres` | `list[str]` | First-login genre preferences |
-| `onboarding_completed` | `bool` | Onboarding state |
-| `last_active_at` | `datetime` | Latest authenticated activity |
 
-`password_hash` is persistence-only and is excluded from API profile responses.
-Guest users have no User record.
+`onboarding_completed` is derived from whether `onboarding_genres` contains at
+least one value. `last_active_at` is not persisted by the deployed schema; the
+stable API response uses `user_settings.created_at` as its audit fallback.
+Login is read-only and never rewrites a Users item. `password_hash` remains
+persistence-only and is excluded from API profile responses. Guest users have
+no User record.
 
 ### UserInteraction
 
@@ -139,7 +149,7 @@ stored separately in Users.
 | `cached_at` | `generated_at` | Replaced |
 | `expires_at` | `expire_at` | Replaced |
 | `provider` | `model_version` | Replaced with an explicit version |
-| `schema_version` | none | Removed from canonical table records |
+| Flat user account fields | `user_settings.*` | Users account fields remain embedded |
 
 ## Field naming convention
 
