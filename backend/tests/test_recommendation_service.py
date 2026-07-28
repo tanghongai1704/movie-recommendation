@@ -18,7 +18,7 @@ class InMemoryRecommendationCache:
         self.get_calls = 0
         self.put_calls = 0
 
-    def get_item(
+    def get(
         self,
         user_id: str,
         scenario: str,
@@ -26,7 +26,7 @@ class InMemoryRecommendationCache:
         self.get_calls += 1
         return self.items.get((user_id, scenario))
 
-    def put_item(self, item: RecommendationCache) -> RecommendationCache:
+    def upsert(self, item: RecommendationCache) -> RecommendationCache:
         self.put_calls += 1
         self.items[(item.user_id, item.scenario)] = item
         return item

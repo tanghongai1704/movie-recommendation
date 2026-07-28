@@ -6,19 +6,19 @@ from app.models.movie import Movie
 
 class MovieRepository(ABC):
     @abstractmethod
-    def get_all(self) -> list[Movie]:
+    def list_all(self) -> list[Movie]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_by_id(self, movie_id: str) -> Optional[Movie]:
+    def get(self, movie_id: str) -> Optional[Movie]:
         raise NotImplementedError
 
-    def get_by_ids(self, movie_ids: list[str]) -> list[Movie]:
+    def get_many(self, movie_ids: list[str]) -> list[Movie]:
         """Resolve movie IDs in caller-provided order."""
 
         movies: list[Movie] = []
         for movie_id in movie_ids:
-            movie = self.get_by_id(movie_id)
+            movie = self.get(movie_id)
             if movie is not None:
                 movies.append(movie)
         return movies
@@ -80,10 +80,10 @@ class InMemoryMovieRepository(MovieRepository):
             ),
         ]
 
-    def get_all(self) -> list[Movie]:
+    def list_all(self) -> list[Movie]:
         return self._movies
 
-    def get_by_id(self, movie_id: str) -> Optional[Movie]:
+    def get(self, movie_id: str) -> Optional[Movie]:
         return next(
             (movie for movie in self._movies if movie.movie_id == movie_id),
             None,

@@ -9,7 +9,7 @@ class RecordingRepository:
     def __init__(self) -> None:
         self.items: list[UserInteraction] = []
 
-    def put_item(self, item: UserInteraction) -> UserInteraction:
+    def create(self, item: UserInteraction) -> UserInteraction:
         self.items.append(item)
         return item
 

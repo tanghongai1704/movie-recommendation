@@ -18,11 +18,11 @@ class MovieService:
     def get_all_movies(self) -> list[MovieResponse]:
         return [
             MovieResponse.model_validate(movie.model_dump())
-            for movie in self._repository.get_all()
+            for movie in self._repository.list_all()
         ]
 
     def get_movie_by_id(self, movie_id: str) -> Optional[MovieResponse]:
-        movie = self._repository.get_by_id(movie_id)
+        movie = self._repository.get(movie_id)
         return (
             MovieResponse.model_validate(movie.model_dump())
             if movie is not None

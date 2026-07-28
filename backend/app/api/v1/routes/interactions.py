@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
-from app.repositories.dynamodb_repository import (
-    DynamoDBRepositoryError,
+from app.repositories.dynamodb_base import DynamoDBRepositoryError
+from app.repositories.user_interactions_repository import (
     UserInteractionsRepository,
 )
 from app.schemas.interaction import InteractionCreate, InteractionResponse

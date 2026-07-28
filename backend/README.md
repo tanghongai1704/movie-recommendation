@@ -43,6 +43,9 @@ references use `movie_id` and `user_id`; generic `id` fields are not used.
 See [Domain Model and Entity Mapping](docs/domain-model.md) for the complete
 field inventory, data flow, field mapping, and naming rules.
 
+See [DynamoDB Repository Layer](docs/repositories.md) for the one-repository-per-
+table layout, CRUD contracts, configuration, and boundary rules.
+
 ## Data flow
 
 ### Movie metadata
@@ -116,6 +119,12 @@ PYTHONPATH=. python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reloa
 - `DEBUG` - enables debug mode when set to `True`
 - `AUTH_TOKEN_PREFIX` - token prefix used by the demo auth flow
 - `AWS_REGION` - DynamoDB region
+- `AWS_DYNAMODB_TABLE_MOVIES` - Movies table name
+- `AWS_DYNAMODB_TABLE_POPULAR` - PopularMovies table name
+- `AWS_DYNAMODB_TABLE_USERS` - Users table name
 - `AWS_DYNAMODB_TABLE_INTERACTIONS` - UserInteractions table name
 - `AWS_DYNAMODB_TABLE_RECOMMENDATION_CACHE` - RecommendationCache table name
 - `RECOMMENDATION_CACHE_TTL_SECONDS` - application cache validity window
+
+All AWS region and DynamoDB table variables are required. Repository
+implementations contain no fallback table names.

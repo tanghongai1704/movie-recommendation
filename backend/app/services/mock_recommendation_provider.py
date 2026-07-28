@@ -22,7 +22,7 @@ class MockRecommendationProvider(RecommendationProvider):
         self,
         user_id: Optional[str] = None,
     ) -> list[MovieResponse]:
-        movies = self._repository.get_all()
+        movies = self._repository.list_all()
         scores = [8.9, 8.4, 7.9]
         return [
             RecommendationMovie(

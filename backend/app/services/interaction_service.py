@@ -10,7 +10,7 @@ from app.schemas.interaction import InteractionCreate, InteractionResponse
 class InteractionRepository(Protocol):
     """Persistence boundary used by InteractionService."""
 
-    def put_item(self, item: UserInteraction) -> UserInteraction:
+    def create(self, item: UserInteraction) -> UserInteraction:
         ...
 
 
@@ -44,6 +44,6 @@ class InteractionService:
             timestamp=timestamp,
             session_id=interaction.session_id,
         )
-        self._repository.put_item(record)
+        self._repository.create(record)
 
         return InteractionResponse.model_validate(record.model_dump())

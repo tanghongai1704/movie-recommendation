@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
-from app.repositories.dynamodb_repository import RecommendationCacheRepository
 from app.repositories.movie_repository import InMemoryMovieRepository
+from app.repositories.recommendation_cache_repository import (
+    RecommendationCacheRepository,
+)
 from app.schemas.movie import MovieResponse
 from app.schemas.recommendation import RecommendationResponse
 from app.services.mock_recommendation_provider import MockRecommendationProvider

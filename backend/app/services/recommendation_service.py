@@ -15,14 +15,14 @@ from app.services.recommendation_provider import RecommendationProvider
 class RecommendationCacheStore(Protocol):
     """Persistence boundary used by RecommendationService."""
 
-    def get_item(
+    def get(
         self,
         user_id: str,
         scenario: str,
     ) -> Optional[RecommendationCache]:
         ...
 
-    def put_item(self, item: RecommendationCache) -> RecommendationCache:
+    def upsert(self, item: RecommendationCache) -> RecommendationCache:
         ...
 
 
@@ -100,13 +100,13 @@ class RecommendationService:
         self,
         user_id: str,
     ) -> Optional[list[CachedRecommendationMovie]]:
-        cached = self._cache.get_item(user_id=user_id, scenario=self._scenario)
+        cached = self._cache.get(user_id=user_id, scenario=self._scenario)
         if cached is None or cached.expire_at <= self._clock():
             return None
 
         movies: list[CachedRecommendationMovie] = []
         for item in cached.items:
-            movie = self._movie_repository.get_by_id(item.movie_id)
+            movie = self._movie_repository.get(item.movie_id)
             if movie is None:
                 return None
             movies.append(
@@ -134,7 +134,7 @@ class RecommendationService:
             )
             for movie in movies
         ]
-        self._cache.put_item(
+        self._cache.upsert(
             RecommendationCache(
                 user_id=user_id,
                 scenario=self._scenario,

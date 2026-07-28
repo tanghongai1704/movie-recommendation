@@ -1,0 +1,61 @@
+from typing import Any, Optional
+
+from app.models.recommendation_cache import RecommendationCache
+from app.repositories.dynamodb_base import BaseDynamoDBRepository
+
+
+class RecommendationCacheRepository(BaseDynamoDBRepository):
+    """CRUD persistence for the RecommendationCache table."""
+
+    def __init__(
+        self,
+        *,
+        table_name: str,
+        region_name: str,
+        table: Any | None = None,
+    ) -> None:
+        super().__init__(
+            table_name=table_name,
+            region_name=region_name,
+            table=table,
+        )
+
+    def create(self, cache_entry: RecommendationCache) -> RecommendationCache:
+        return self._create(
+            cache_entry,
+            partition_key="user_id",
+            sort_key="scenario",
+        )
+
+    def get(
+        self,
+        user_id: str,
+        scenario: str,
+    ) -> Optional[RecommendationCache]:
+        return self._get(
+            key={
+                "user_id": user_id,
+                "scenario": scenario,
+            },
+            model_type=RecommendationCache,
+        )
+
+    def update(self, cache_entry: RecommendationCache) -> RecommendationCache:
+        return self._update(
+            cache_entry,
+            partition_key="user_id",
+            sort_key="scenario",
+        )
+
+    def upsert(self, cache_entry: RecommendationCache) -> RecommendationCache:
+        """Create or fully replace one cache record without ranking decisions."""
+
+        return self._upsert(cache_entry)
+
+    def delete(self, user_id: str, scenario: str) -> bool:
+        return self._delete(
+            key={
+                "user_id": user_id,
+                "scenario": scenario,
+            }
+        )

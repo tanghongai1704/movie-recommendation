@@ -1,0 +1,237 @@
+import unittest
+from datetime import datetime, timezone
+from typing import Any
+
+from app.models.movie import Movie
+from app.models.popular_movie import PopularMovie
+from app.models.recommendation_cache import (
+    RecommendationCache,
+    RecommendationCacheItem,
+)
+from app.models.user import User
+from app.models.user_interaction import InteractionType, UserInteraction
+from app.repositories.movies_repository import MoviesRepository
+from app.repositories.popular_movies_repository import PopularMoviesRepository
+from app.repositories.recommendation_cache_repository import (
+    RecommendationCacheRepository,
+)
+from app.repositories.user_interactions_repository import (
+    UserInteractionsRepository,
+)
+from app.repositories.users_repository import UsersRepository
+
+
+class FakeDynamoDBTable:
+    """Minimal DynamoDB table double used to verify repository mapping."""
+
+    def __init__(self) -> None:
+        self.items: list[dict[str, Any]] = []
+
+    @staticmethod
+    def _key_fields(item: dict[str, Any]) -> tuple[str, ...]:
+        if "interaction_key" in item:
+            return ("user_id", "interaction_key")
+        if "scenario" in item:
+            return ("user_id", "scenario")
+        if "list_id" in item:
+            return ("list_id",)
+        if "movie_id" in item:
+            return ("movie_id",)
+        return ("user_id",)
+
+    @staticmethod
+    def _matches(item: dict[str, Any], key: dict[str, Any]) -> bool:
+        return all(item.get(name) == value for name, value in key.items())
+
+    def put_item(self, *, Item: dict[str, Any], **_: Any) -> dict[str, Any]:
+        key = {name: Item[name] for name in self._key_fields(Item)}
+        self.items = [item for item in self.items if not self._matches(item, key)]
+        self.items.append(Item)
+        return {}
+
+    def get_item(self, *, Key: dict[str, Any]) -> dict[str, Any]:
+        item = next(
+            (item for item in self.items if self._matches(item, Key)),
+            None,
+        )
+        return {"Item": item} if item is not None else {}
+
+    def delete_item(
+        self,
+        *,
+        Key: dict[str, Any],
+        ReturnValues: str,
+    ) -> dict[str, Any]:
+        del ReturnValues
+        existing = next(
+            (item for item in self.items if self._matches(item, Key)),
+            None,
+        )
+        self.items = [item for item in self.items if not self._matches(item, Key)]
+        return {"Attributes": existing} if existing is not None else {}
+
+    def scan(self, **_: Any) -> dict[str, Any]:
+        return {"Items": list(self.items)}
+
+    def query(self, **options: Any) -> dict[str, Any]:
+        partition_key = options["ExpressionAttributeNames"]["#pk"]
+        partition_value = options["ExpressionAttributeValues"][":pk"]
+        return {
+            "Items": [
+                item
+                for item in self.items
+                if item.get(partition_key) == partition_value
+            ]
+        }
+
+
+class DynamoDBRepositoryTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.timestamp = datetime(2026, 7, 28, tzinfo=timezone.utc)
+
+    def make_movie(self, *, title: str = "Example") -> Movie:
+        return Movie(
+            movie_id="movie-1",
+            title=title,
+            release_year=2026,
+            genres=["Drama"],
+            overview="Overview",
+            poster_path="/poster.jpg",
+            vote_average=8.0,
+            vote_count=100,
+            popularity=25.0,
+            runtime=110,
+            original_language="en",
+            companies=["Studio"],
+            countries=["Vietnam"],
+            actors=["Actor"],
+            directors=["Director"],
+        )
+
+    def test_movies_repository_crud(self) -> None:
+        repository = MoviesRepository(
+            table_name="movies-test",
+            region_name="test-region",
+            table=FakeDynamoDBTable(),
+        )
+        movie = self.make_movie()
+
+        self.assertEqual(repository.create(movie), movie)
+        self.assertEqual(repository.get("movie-1"), movie)
+        self.assertEqual(repository.list_all(), [movie])
+
+        updated = self.make_movie(title="Updated")
+        self.assertEqual(repository.update(updated), updated)
+        self.assertEqual(repository.get("movie-1"), updated)
+        self.assertTrue(repository.delete("movie-1"))
+        self.assertIsNone(repository.get("movie-1"))
+
+    def test_popular_movies_repository_crud(self) -> None:
+        repository = PopularMoviesRepository(
+            table_name="popular-test",
+            region_name="test-region",
+            table=FakeDynamoDBTable(),
+        )
+        popular = PopularMovie(
+            list_id="global",
+            ranking_type="global",
+            genre=None,
+            movie_ids=["movie-1"],
+            scores=[0.9],
+            generated_at=self.timestamp,
+        )
+
+        self.assertEqual(repository.create(popular), popular)
+        self.assertEqual(repository.get("global"), popular)
+        self.assertEqual(repository.list_all(), [popular])
+        self.assertEqual(repository.update(popular), popular)
+        self.assertTrue(repository.delete("global"))
+
+    def test_users_repository_crud(self) -> None:
+        repository = UsersRepository(
+            table_name="users-test",
+            region_name="test-region",
+            table=FakeDynamoDBTable(),
+        )
+        user = User(
+            user_id="user-1",
+            email="user@example.com",
+            username="example",
+            password_hash="hash",
+            created_at=self.timestamp,
+            onboarding_genres=["Drama"],
+            onboarding_completed=False,
+            last_active_at=self.timestamp,
+        )
+
+        self.assertEqual(repository.create(user), user)
+        self.assertEqual(repository.get("user-1"), user)
+        self.assertEqual(repository.list_all(), [user])
+        self.assertEqual(repository.update(user), user)
+        self.assertTrue(repository.delete("user-1"))
+
+    def test_user_interactions_repository_crud(self) -> None:
+        repository = UserInteractionsRepository(
+            table_name="interactions-test",
+            region_name="test-region",
+            table=FakeDynamoDBTable(),
+        )
+        interaction = UserInteraction(
+            user_id="user-1",
+            interaction_key="2026-07-28T00:00:00Z#movie-1",
+            movie_id="movie-1",
+            interaction_type=InteractionType.WATCH,
+            interaction_value=None,
+            timestamp=self.timestamp,
+            session_id="session-1",
+        )
+
+        self.assertEqual(repository.create(interaction), interaction)
+        self.assertEqual(
+            repository.get("user-1", interaction.interaction_key),
+            interaction,
+        )
+        self.assertEqual(repository.list_by_user("user-1"), [interaction])
+        self.assertEqual(repository.update(interaction), interaction)
+        self.assertTrue(
+            repository.delete("user-1", interaction.interaction_key)
+        )
+
+    def test_recommendation_cache_repository_crud_and_upsert(self) -> None:
+        repository = RecommendationCacheRepository(
+            table_name="cache-test",
+            region_name="test-region",
+            table=FakeDynamoDBTable(),
+        )
+        cache_entry = RecommendationCache(
+            user_id="user-1",
+            scenario="home",
+            items=[
+                RecommendationCacheItem(
+                    movie_id="movie-1",
+                    score=0.95,
+                    reason_code="genre_match",
+                )
+            ],
+            model_version="mock-v1",
+            generated_at=self.timestamp,
+            expire_at=1_800_000_000,
+        )
+
+        self.assertEqual(repository.create(cache_entry), cache_entry)
+        self.assertEqual(repository.get("user-1", "home"), cache_entry)
+        self.assertEqual(repository.update(cache_entry), cache_entry)
+        self.assertEqual(repository.upsert(cache_entry), cache_entry)
+        self.assertTrue(repository.delete("user-1", "home"))
+
+    def test_table_configuration_is_required(self) -> None:
+        with self.assertRaises(ValueError):
+            MoviesRepository(
+                table_name="",
+                region_name="test-region",
+                table=FakeDynamoDBTable(),
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()
