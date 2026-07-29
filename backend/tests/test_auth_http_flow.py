@@ -331,6 +331,46 @@ class AuthenticationHTTPFlowTests(unittest.TestCase):
             ).json()["rating"]
         )
 
+    def test_current_user_rating_reads_legacy_interaction_records(self) -> None:
+        register = self.client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "legacy-rating@example.com",
+                "username": "legacy-rating-user",
+                "password": "password123",
+            },
+        )
+        session = register.json()
+        user_id = session["user"]["user_id"]
+        auth_headers = {
+            "Authorization": f"Bearer {session['access_token']}"
+        }
+        TABLES["UserInteractions"].put_item(
+            Item={
+                "user_id": user_id,
+                "interaction_key": "2026-07-28T12:00:00Z#265330",
+                "event_id": "legacy-event-id",
+                "event_type": "rating",
+                "movie_id": 265330,
+                "rating": 3.5,
+                "created_at": "2026-07-28T12:00:00Z",
+                "metadata": {"source": "seed"},
+                "schema_version": 1,
+                "username": "legacy-rating-user",
+            }
+        )
+
+        response = self.client.get(
+            "/api/v1/users/me/ratings/265330",
+            headers=auth_headers,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {"movie_id": "265330", "rating": 3.5},
+        )
+
     def test_current_user_reaction_tracks_set_and_clear(self) -> None:
         register = self.client.post(
             "/api/v1/auth/register",

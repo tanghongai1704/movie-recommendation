@@ -1,6 +1,6 @@
 from typing import Any, Optional
 
-from app.models.user_interaction import UserInteraction
+from app.models.user_interaction import StoredUserInteraction, UserInteraction
 from app.repositories.dynamodb_base import (
     BaseDynamoDBRepository,
     DynamoDBRepositoryError,
@@ -54,11 +54,11 @@ class UserInteractionsRepository(BaseDynamoDBRepository):
             model_type=UserInteraction,
         )
 
-    def list_by_user(self, user_id: str) -> list[UserInteraction]:
+    def list_by_user(self, user_id: str) -> list[StoredUserInteraction]:
         return self._query_by_partition_key(
             partition_key="user_id",
             partition_value=user_id,
-            model_type=UserInteraction,
+            model_type=StoredUserInteraction,
         )
 
     def update(self, interaction: UserInteraction) -> UserInteraction:

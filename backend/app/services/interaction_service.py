@@ -6,6 +6,7 @@ from uuid import UUID
 from app.models.user_interaction import (
     InteractionAction,
     InteractionType,
+    StoredUserInteraction,
     UserInteraction,
     format_interaction_timestamp,
 )
@@ -23,7 +24,7 @@ class InteractionRepository(Protocol):
     def create(self, item: UserInteraction) -> UserInteraction:
         ...
 
-    def list_by_user(self, user_id: str) -> list[UserInteraction]:
+    def list_by_user(self, user_id: str) -> list[StoredUserInteraction]:
         ...
 
 

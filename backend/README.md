@@ -98,6 +98,11 @@ or `null` when no rating exists. This read path does not change the DynamoDB
 schema or write a derived rating record. The equivalent reaction projection is
 available at `GET /api/v1/users/me/reactions/{movie_id}`.
 
+Historical UserInteractions records are mapped through a read-only compatibility
+model. It accepts the deployed legacy field shapes, infers missing actions, and
+normalizes numeric movie IDs without writing the normalized representation back
+to DynamoDB. Canonical writes remain strict and unchanged.
+
 ## Field naming convention
 
 - Use `snake_case` in Python, JSON, and DynamoDB.

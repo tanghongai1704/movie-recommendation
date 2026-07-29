@@ -1,5 +1,6 @@
 import unittest
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -244,10 +245,107 @@ class DynamoDBRepositoryTests(unittest.TestCase):
             interaction,
         )
         self.assertEqual(repository.create(interaction), interaction)
-        self.assertEqual(repository.list_by_user("user-1"), [interaction])
+        listed = repository.list_by_user("user-1")
+        self.assertEqual(len(listed), 1)
+        self.assertEqual(listed[0].user_id, interaction.user_id)
+        self.assertEqual(listed[0].interaction_key, interaction.interaction_key)
+        self.assertEqual(listed[0].movie_id, interaction.movie_id)
+        self.assertEqual(
+            listed[0].interaction_type,
+            interaction.interaction_type,
+        )
+        self.assertEqual(
+            listed[0].interaction_action,
+            interaction.interaction_action,
+        )
+        self.assertEqual(
+            listed[0].interaction_value,
+            interaction.interaction_value,
+        )
+        self.assertEqual(listed[0].timestamp, interaction.timestamp)
         self.assertEqual(repository.update(interaction), interaction)
         self.assertTrue(
             repository.delete("user-1", interaction.interaction_key)
+        )
+
+    def test_user_interactions_repository_normalizes_legacy_reads(self) -> None:
+        table = FakeDynamoDBTable()
+        repository = UserInteractionsRepository(
+            table_name="interactions-test",
+            region_name="test-region",
+            table=table,
+        )
+        table.items.extend(
+            [
+                {
+                    "user_id": "user-1",
+                    "interaction_key": (
+                        "2026-07-28T12:00:00.000Z#movie-1"
+                        "#legacy-generated-event"
+                    ),
+                    "movie_id": "movie-1",
+                    "interaction_type": "rating",
+                    "interaction_action": "set",
+                    "interaction_value": Decimal("4.5"),
+                    "timestamp": "2026-07-28T12:00:00Z",
+                    "session_id": None,
+                },
+                {
+                    "user_id": "user-1",
+                    "interaction_key": "2026-07-28T13:00:00Z#42",
+                    "event_id": "legacy-event-id",
+                    "event_type": "rating",
+                    "movie_id": 42,
+                    "rating": Decimal("3.5"),
+                    "created_at": "2026-07-28T13:00:00Z",
+                    "metadata": {"source": "seed"},
+                    "schema_version": Decimal("1"),
+                    "username": "legacy-user",
+                },
+                {
+                    "user_id": "user-1",
+                    "interaction_key": "2026-07-28T14:00:00Z#movie-2",
+                    "movie_id": "movie-2",
+                    "interaction_type": "reaction",
+                    "interaction_value": Decimal("-1"),
+                    "timestamp": "2026-07-28T14:00:00Z",
+                    "session_id": "legacy-session",
+                },
+                {
+                    "user_id": "user-1",
+                    "interaction_key": "2026-07-28T15:00:00Z#movie-3",
+                    "movie_id": "movie-3",
+                    "interaction_type": "rating",
+                    "interaction_action": "set",
+                    "interaction_value": Decimal("0"),
+                    "timestamp": "2026-07-28T15:00:00Z",
+                    "session_id": None,
+                },
+            ]
+        )
+
+        records = repository.list_by_user("user-1")
+
+        self.assertEqual(len(records), 4)
+        self.assertEqual(records[0].interaction_value, 4.5)
+        self.assertEqual(records[1].movie_id, "42")
+        self.assertEqual(
+            records[1].interaction_type,
+            InteractionType.RATING,
+        )
+        self.assertEqual(
+            records[1].interaction_action,
+            InteractionAction.SET,
+        )
+        self.assertEqual(records[1].interaction_value, 3.5)
+        self.assertEqual(
+            records[2].interaction_action,
+            InteractionAction.SET,
+        )
+        self.assertEqual(records[2].interaction_value, -1)
+        self.assertEqual(
+            records[3].interaction_action,
+            InteractionAction.CLEAR,
         )
 
     def test_recommendation_cache_repository_crud_and_upsert(self) -> None:

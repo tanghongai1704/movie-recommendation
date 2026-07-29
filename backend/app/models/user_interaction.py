@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -73,3 +74,75 @@ class UserInteraction(BaseModel):
                 "interaction_key must use timestamp#movie_id#event_id"
             )
         return self
+
+
+class StoredUserInteraction(BaseModel):
+    """Read-compatible interaction view for canonical and legacy records.
+
+    New writes must continue to use ``UserInteraction``. This model is used
+    only when reading an existing DynamoDB user partition, where historical
+    records may predate canonical event IDs, actions, session IDs, and field
+    names.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    user_id: str = Field(min_length=1)
+    interaction_key: str = Field(min_length=1)
+    movie_id: str = Field(min_length=1)
+    interaction_type: InteractionType
+    interaction_action: InteractionAction
+    interaction_value: float | None = None
+    timestamp: datetime
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_record(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+
+        record = dict(value)
+        interaction_type = record.get("interaction_type")
+        if interaction_type is None:
+            interaction_type = record.get("event_type")
+        record["interaction_type"] = interaction_type
+
+        movie_id = record.get("movie_id")
+        if movie_id is not None:
+            record["movie_id"] = str(movie_id)
+
+        if record.get("timestamp") is None:
+            record["timestamp"] = record.get("created_at")
+
+        interaction_value = record.get("interaction_value")
+        if interaction_value is None and record.get("rating") is not None:
+            interaction_value = record["rating"]
+        if interaction_value is None and interaction_type in {
+            InteractionType.CLICK,
+            InteractionType.WATCH,
+            InteractionType.SHARE,
+            InteractionType.CLICK.value,
+            InteractionType.WATCH.value,
+            InteractionType.SHARE.value,
+        }:
+            interaction_value = 1.0
+        record["interaction_value"] = interaction_value
+
+        interaction_action = record.get("interaction_action")
+        if interaction_type in {
+            InteractionType.RATING,
+            InteractionType.REACTION,
+            InteractionType.RATING.value,
+            InteractionType.REACTION.value,
+        }:
+            # Historical datasets sometimes stored a zero-value "set" event.
+            # Canonically this means that the previous rating/reaction is clear.
+            if interaction_value == 0:
+                interaction_action = InteractionAction.CLEAR
+            elif interaction_action is None:
+                interaction_action = InteractionAction.SET
+        elif interaction_action is None:
+            interaction_action = InteractionAction.RECORD
+        record["interaction_action"] = interaction_action
+
+        return record

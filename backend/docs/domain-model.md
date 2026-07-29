@@ -101,6 +101,11 @@ Canonical writes use `record`, `set`, and `clear`. Click and share use
 Legacy action values remain deserializable so existing DynamoDB events can
 still be read, but new API requests cannot write them.
 
+Partition reads use a separate `StoredUserInteraction` compatibility view.
+It maps legacy `event_type`, `rating`, and `created_at` fields, infers missing
+actions, accepts missing event/session identifiers, and converts numeric movie
+IDs to strings in memory. It never updates the source DynamoDB item.
+
 ### RecommendationCache
 
 | Field | Type | Meaning |

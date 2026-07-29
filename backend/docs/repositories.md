@@ -72,7 +72,7 @@ used by the current mock provider. It is not a DynamoDB table implementation.
 |---|---|
 | `create(interaction)` | Conditionally create one interaction; return the identical existing item on an idempotent retry |
 | `get(user_id, interaction_key)` | Read one interaction |
-| `list_by_user(user_id)` | Query all interaction pages for one user |
+| `list_by_user(user_id)` | Query all interaction pages for one user and map deployed legacy shapes to a read-only compatibility model |
 | `update(interaction)` | Conditionally replace an existing interaction |
 | `delete(user_id, interaction_key)` | Delete one interaction |
 

@@ -53,6 +53,10 @@ This phase changed backend domain names and persistence mapping only.
 - Interaction requests temporarily accept `rating` as an alias for
   `interaction_value`.
 - Numeric legacy movie IDs in interaction requests are normalized to strings.
+- Existing UserInteractions partition reads accept missing `event_id`,
+  `session_id`, and `interaction_action` values.
+- Legacy `event_type`, `rating`, and `created_at` fields are mapped in memory
+  without updating DynamoDB.
 - The old DynamoDB repository import path re-exports the new repository
   classes temporarily.
 
@@ -73,10 +77,12 @@ The affected response changes are:
 - Recommendation items now contain canonical movie metadata plus `score` and
   `reason_code`.
 
-## Existing DynamoDB data migration required
+## Optional existing-data normalization
 
-This phase changes application models; it does not rewrite deployed records.
-Before deploying the backend against existing data:
+The runtime compatibility reader allows existing UserInteractions records to
+remain unchanged. A future offline normalization is optional if all records
+must eventually use the canonical physical representation. Before running such
+a migration:
 
 1. Back up UserInteractions and RecommendationCache.
 2. Transform existing UserInteractions records into the canonical schema.
