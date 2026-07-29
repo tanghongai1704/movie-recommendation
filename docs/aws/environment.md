@@ -49,7 +49,7 @@ environment.
 | `AWS_SESSION_TOKEN` | Temporary session token | IAM | No | secret | SDK chain | STS command |
 | `AWS_ENDPOINT_URL` | Explicit custom AWS endpoint | AWS SDK | No | private endpoint URL | SDK clients | startup |
 | `AWS_VALIDATE_CREDENTIALS` | Check credential provider chain | STS | No | `True` | config startup | remove credentials and verify failure |
-| `AWS_VALIDATE_RESOURCES` | Check identity/tables/S3/endpoint | AWS | No | `True` | startup validator | backend startup |
+| `AWS_VALIDATE_RESOURCES` | Strictly check identity/tables/S3; warn on endpoint health | AWS | No | `True` | startup validator | backend startup |
 | `AWS_CONNECT_TIMEOUT_SECONDS` | SDK connect timeout | AWS SDK | No | `3` | botocore | config test |
 | `AWS_READ_TIMEOUT_SECONDS` | SDK read timeout | AWS SDK | No | `10` | botocore | config test |
 | `AWS_MAX_ATTEMPTS` | SDK and BatchGet attempts | AWS SDK | No | `3` | botocore/repository | config test |
@@ -89,7 +89,7 @@ The former `AWS_DYNAMODB_TABLE_*` names remain migration aliases only.
 
 | Variable | Purpose | Required | Example | Used by | Verification |
 |---|---|---|---|---|---|
-| `AWS_SAGEMAKER_ENABLED` | Enable endpoint provider | No | `False` | provider/startup | cache-miss test |
+| `AWS_SAGEMAKER_ENABLED` | Enable endpoint provider; endpoint name also enables it when omitted | No | `True` | provider/startup | cache-miss test |
 | `AWS_SAGEMAKER_TRAINING_JOB_NAME_PREFIX` | Job naming | For job | `movie-rec-train` | ML launcher | dry run |
 | `AWS_SAGEMAKER_ENDPOINT_NAME` | Real-time endpoint | When enabled | versioned name | provider | `describe-endpoint` |
 | `AWS_SAGEMAKER_MODEL_NAME` | Deployed model resource | For deployment | versioned name | deployment docs | `describe-model` |
@@ -99,8 +99,8 @@ The former `AWS_DYNAMODB_TABLE_*` names remain migration aliases only.
 | `AWS_SAGEMAKER_ACCEPT` | Response media type | No | `application/json` | provider | contract test |
 | `AWS_SAGEMAKER_RECOMMENDATION_LIMIT` | Endpoint result count | No | `10` | provider | provider test |
 | `RECOMMENDATION_CACHE_TTL_SECONDS` | Cache validity | No | `300` | service | service test |
-| `RECOMMENDATION_CACHE_SCENARIO` | Cache/provider scenario | No | `default` | service/provider | cache key |
-| `RECOMMENDATION_MODEL_VERSION` | Version written to new cache | Before inference | version string | service | inspect cache |
+| `RECOMMENDATION_CACHE_SCENARIO` | Legacy compatibility only; runtime uses dynamic onboarding/returning keys | No | `default` | config compatibility | config test |
+| `RECOMMENDATION_MODEL_VERSION` | Fallback only when endpoint omits its model version; must never be mock for real inference | Before inference | version string | provider/service | inspect cache |
 
 ## Frontend and Docker
 

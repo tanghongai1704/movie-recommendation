@@ -22,9 +22,8 @@ Recommendation behavior:
 
 - guest home: PopularMovies → BatchGet Movies
 - returning-user cache hit: RecommendationCache → BatchGet Movies
-- cache miss: SageMakerRecommendationProvider
-- before a compatible SageMaker endpoint exists: HTTP 503, never fabricated
-  recommendations
+- cache miss: Users/UserInteractions → SageMaker Runtime → BatchGet Movies
+- endpoint unavailable: controlled error, never fabricated recommendations
 
 ## Features
 
@@ -61,7 +60,7 @@ The backend validates:
 - AWS credential chain and caller identity
 - all five table states and exact key schemas
 - S3 bucket and prefix-list access
-- enabled SageMaker endpoint state
+- enabled SageMaker endpoint state as a non-blocking health warning
 - API, JWT, URL, timeout, retry and logging settings
 
 See [Environment Variables](docs/aws/environment.md).
@@ -104,7 +103,7 @@ docker compose exec -T frontend npm run build
 - [Authentication](docs/architecture/authentication-flow.md)
 - [Interaction Pipeline](docs/architecture/interaction-pipeline.md)
 
-SageMaker inference remains disabled until a compatible model is trained and
-deployed. Enabling it later requires implementing only the provider's
-`invoke_endpoint()` method; frontend, API, services and repositories stay
-unchanged.
+SageMaker Runtime integration is implemented in the provider and keeps the
+existing frontend API contract. See the SageMaker guide for the verified model
+request/response contract, endpoint diagnostics, cache behavior, and the
+documented similar-movies serving limitation.

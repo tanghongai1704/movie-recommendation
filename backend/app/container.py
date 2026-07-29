@@ -82,22 +82,22 @@ popular_movie_service = PopularMovieService(
     list_id=settings.dynamodb.popular_list_id,
 )
 recommendation_provider = SageMakerRecommendationProvider(
-    movie_repository=movies_repository,
     runtime_client=aws_clients.sagemaker_runtime_client,
     control_client=aws_clients.sagemaker_client,
     endpoint_name=settings.sagemaker.endpoint_name,
-    scenario=settings.cache.scenario,
     recommendation_limit=settings.sagemaker.recommendation_limit,
     content_type=settings.sagemaker.content_type,
     accept=settings.sagemaker.accept,
+    fallback_model_version=settings.cache.model_version,
     enabled=settings.sagemaker.enabled,
 )
 recommendation_service = RecommendationService(
     provider=recommendation_provider,
     cache=recommendation_cache_repository,
     movie_repository=movies_repository,
+    users=users_repository,
+    interactions=user_interactions_repository,
     cache_ttl_seconds=settings.cache.ttl_seconds,
-    scenario=settings.cache.scenario,
     model_version=settings.cache.model_version,
 )
 movie_service = MovieService(

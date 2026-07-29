@@ -38,12 +38,15 @@ Authenticated returning user
   -> RecommendationCacheRepository.GetItem
      -> valid: MoviesRepository.BatchGetItem -> response
      -> missing/expired/invalid: RecommendationProvider
-        -> SageMakerRecommendationProvider
+        -> UsersRepository.GetItem
+        -> UserInteractionsRepository.Query
+        -> SageMakerRecommendationProvider.InvokeEndpoint
+        -> MoviesRepository.BatchGetItem
+        -> best-effort RecommendationCacheRepository.Upsert
 ```
 
-There is no local ranking fallback. Until a compatible endpoint is deployed,
-cache misses return HTTP 503. A future endpoint change is isolated to
-`SageMakerRecommendationProvider.invoke_endpoint()`.
+There is no local ranking fallback. Endpoint failures are translated to
+controlled API errors, while guest browsing remains independent of SageMaker.
 
 ## Authentication flow
 
@@ -65,8 +68,9 @@ InteractionService. See [Interaction Pipeline](interaction-pipeline.md).
 - the ML submodule consumes S3 and exports UserInteractions for training.
 - SageMaker control/runtime clients are owned by the provider/composition layer.
 
-Startup validates the AWS identity, exact table keys, S3 access, and the
-endpoint state when inference is enabled.
+Startup strictly validates the AWS identity, exact table keys, and S3 access.
+When inference is enabled it checks endpoint state as non-blocking health, so
+an intentionally stopped endpoint cannot take guest browsing down.
 
 See [AWS Resource Mapping](../aws/resource-mapping.md) and
 [Project Deployment](../aws/project-deployment.md).

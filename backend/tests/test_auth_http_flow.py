@@ -114,10 +114,18 @@ os.environ.update(
         "ALLOW_LEGACY_DEV_LOGIN": "True",
     }
 )
-sys.modules["boto3"] = types.SimpleNamespace(
-    resource=lambda *_args, **_kwargs: FakeDynamoDBResource(),
-    client=lambda *_args, **_kwargs: types.SimpleNamespace(),
-)
+class FakeBoto3Session:
+    def __init__(self, **_options: Any) -> None:
+        pass
+
+    def resource(self, *_args: Any, **_kwargs: Any) -> FakeDynamoDBResource:
+        return FakeDynamoDBResource()
+
+    def client(self, *_args: Any, **_kwargs: Any) -> Any:
+        return types.SimpleNamespace()
+
+
+sys.modules["boto3"] = types.SimpleNamespace(Session=FakeBoto3Session)
 
 from app.main import app
 
@@ -207,7 +215,7 @@ class AuthenticationHTTPFlowTests(unittest.TestCase):
         TABLES["RecommendationCache"].put_item(
             Item={
                 "user_id": session["user"]["user_id"],
-                "scenario": "default",
+                "scenario": "onboarding_user",
                 "items": [
                     {
                         "movie_id": "265330",

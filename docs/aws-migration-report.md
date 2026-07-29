@@ -41,10 +41,13 @@ The audit found:
 - Guest browsing uses configured PopularMovies → Movies BatchGet.
 - Returning users use RecommendationCache → Movies BatchGet.
 - Cache misses use `SageMakerRecommendationProvider`.
-- While no compatible endpoint exists, cache misses return HTTP 503.
+- The provider invokes `sagemaker-runtime` using the source-backed
+  `RecommendationEngine` contract.
+- Users and UserInteractions build onboarding/returning request context.
+- Endpoint errors map to controlled HTTP 502/503/504 responses.
+- Cache read/write failures are non-fatal to a successful model response.
 - No fake ranking is written to RecommendationCache.
-- Request/response models and the full enrichment boundary are ready.
-- Only `invoke_endpoint()` remains before real inference can be enabled.
+- Endpoint model versions take precedence over the environment fallback.
 
 ## S3 migration
 
@@ -98,8 +101,9 @@ The audit found:
 - DynamoDB: five live tables
 - S3: bucket validation and real transfer tools
 - SageMaker control plane: enabled endpoint validation
-- SageMaker Runtime: client/configuration prepared; invocation intentionally
-  pending a compatible model
+- SageMaker Runtime: reusable client, invocation, response parsing, logging,
+  provider-neutral ranking normalization and error mapping implemented
+- RecommendationService: ordered Movies metadata enrichment and cache behavior
 
 ## Manual verification checklist
 
@@ -116,26 +120,43 @@ The audit found:
 - [x] valid canonical recommendation cache enriches real Movies
 - [x] retired-provider cache records are rejected
 - [x] missing cache returns 503 while SageMaker is disabled
+- [x] mocked SageMaker Runtime contract/error tests pass
+- [ ] deployed endpoint describe/invoke contract test passes
 - [x] backend tests pass
 - [x] frontend typecheck/build pass
 - [x] Docker Compose healthcheck passes
 
 The checked items were verified on 2026-07-29 without mutating deployed
-DynamoDB data. The backend test suite passed 66 tests. Docker Compose rebuilt
+DynamoDB data. The backend test suite passed 83 tests. Docker Compose rebuilt
 both images, the backend became healthy, `/health` returned `200`, the guest
-movie endpoint returned 24 real records, movie `278` resolved from Movies, and
-the frontend returned `200`. The two unchecked write-path items require
+movie endpoint returned 24 real records, and the frontend typecheck and
+production build passed. The two unchecked write-path items require
 explicit acceptance-test users/events and remain deployment checks rather than
 reasons to modify production data during migration.
 
-## Remaining work before real SageMaker inference
+## Remaining deployment verification
 
-1. train and evaluate a compatible model
-2. publish an immutable artifact to the model prefix
-3. create SageMaker Model, endpoint configuration and endpoint
-4. implement the single `invoke_endpoint()` SDK call
-5. run endpoint contract, load, timeout and rollback tests
-6. set model/endpoint variables and `AWS_SAGEMAKER_ENABLED=True`
-7. remove the retired legacy cache item through a separately approved cleanup
+The Docker credential chain successfully reached SageMaker in
+`ap-southeast-1`. However, read-only checks returned no endpoints, endpoint
+configurations, or SageMaker model resources in the configured account/Region.
+`DescribeEndpoint(movie-rec-endpoint)` returned `ValidationException`.
+Therefore no live inference claim is made.
 
-No API, frontend or repository change is required for those steps.
+1. confirm the intended AWS account and Region
+2. deploy or recreate the compatible model, endpoint configuration, and
+   `movie-rec-endpoint`
+3. wait for `InService`, then run
+   `backend/scripts/test_sagemaker_endpoint.py --describe`
+4. invoke onboarding and returning-user contract requests
+5. confirm the deployed artifact uses the same contract as
+   `ml/src/recommenders/engine.py`
+6. load/timeout/rollback test the endpoint
+7. publish a serving contract for `because_you_watched()` before adding a
+   similar-movies API
+8. apply the backend's stable string-to-int64 user mapping in future
+   interaction export/retraining jobs
+9. remove the retired legacy cache item through a separately approved cleanup
+
+The implementation is complete against the contract committed in this
+repository. Live invocation remains unchecked because the configured
+SageMaker endpoint does not currently exist.

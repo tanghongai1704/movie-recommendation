@@ -94,8 +94,8 @@ backend image.
 4. Register the model artifact from `AWS_S3_MODEL_PREFIX`.
 5. Create an endpoint configuration and endpoint.
 6. Verify the endpoint is `InService`.
-7. Implement and test the single `invoke_endpoint()` boundary.
-8. Set `AWS_SAGEMAKER_ENABLED=True` only after contract tests pass.
+7. Run `backend/scripts/test_sagemaker_endpoint.py --describe`.
+8. Invoke a contract request, then set `AWS_SAGEMAKER_ENABLED=True`.
 
 See [SageMaker](sagemaker.md) for the request/response contract.
 
@@ -106,7 +106,8 @@ cp .env.example .env
 ```
 
 Fill all required values. Generate `JWT_SECRET_KEY` independently per
-environment. Keep `AWS_SAGEMAKER_ENABLED=False` until inference is deployable.
+environment. Keep `AWS_SAGEMAKER_ENABLED=False` only while the endpoint is
+absent, intentionally deleted, or still failing contract tests.
 The backend fails startup when identity, table keys, bucket access or enabled
 endpoint state is invalid.
 

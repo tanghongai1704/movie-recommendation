@@ -343,5 +343,23 @@ Responses:
 - `200` recommendation response
 - `401` guest, invalid, or expired token
 - `403` onboarding incomplete or user ID mismatch
+- `502` endpoint returned an invalid/model-error response
+- `503` DynamoDB, credentials, or SageMaker endpoint unavailable
+- `504` SageMaker inference timed out
+
+```json
+{
+  "user_id": "a9a24f96-a3eb-449f-87f5-a4f43e79de19",
+  "recommendations": [
+    {
+      "movie_id": "278",
+      "title": "The Shawshank Redemption",
+      "score": 0.95,
+      "reason_code": "similar_users"
+    }
+  ]
+}
+```
 
 The response contract is independent of the active RecommendationProvider.
+Guest movie browsing uses `/movies` and never calls SageMaker.

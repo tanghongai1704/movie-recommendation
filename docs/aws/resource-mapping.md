@@ -21,7 +21,7 @@ Resource names are always resolved from environment variables.
 | S3 | S3 → bucket → Objects | `AWS_S3_INTERACTION_EXPORT_PREFIX` | — | ML exporter | Retraining events | same command with prefix |
 | SageMaker | SageMaker → Training → Training jobs | `AWS_SAGEMAKER_TRAINING_JOB_NAME_PREFIX` | — | ML launcher | Train/version candidate model | `aws sagemaker list-training-jobs --name-contains "$AWS_SAGEMAKER_TRAINING_JOB_NAME_PREFIX"` |
 | SageMaker | SageMaker → Inference → Models | `AWS_SAGEMAKER_MODEL_NAME` | — | deployment | Model resource | `aws sagemaker describe-model --model-name "$AWS_SAGEMAKER_MODEL_NAME"` |
-| SageMaker | SageMaker → Inference → Endpoints | `AWS_SAGEMAKER_ENDPOINT_NAME` | — | `SageMakerRecommendationProvider` | Future real-time inference | `aws sagemaker describe-endpoint --endpoint-name "$AWS_SAGEMAKER_ENDPOINT_NAME"` |
+| SageMaker | SageMaker → Inference → Endpoints | `AWS_SAGEMAKER_ENDPOINT_NAME` | — | `SageMakerRecommendationProvider` | Real-time personalized inference | `aws sagemaker describe-endpoint --endpoint-name "$AWS_SAGEMAKER_ENDPOINT_NAME"` |
 | IAM | IAM → Roles | `AWS_SAGEMAKER_EXECUTION_ROLE` | — | ML launcher/SageMaker | Job/model execution identity | `aws iam get-role --role-name <role-name>` |
 
 ## Runtime ownership

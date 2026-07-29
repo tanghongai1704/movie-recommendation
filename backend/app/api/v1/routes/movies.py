@@ -8,6 +8,8 @@ from app.schemas.movie import MovieResponse
 from app.schemas.recommendation import RecommendationResponse
 from app.services.popular_movie_service import PopularMoviesNotFoundError
 from app.services.recommendation_provider import (
+    RecommendationProviderResponseError,
+    RecommendationProviderTimeoutError,
     RecommendationProviderUnavailableError,
 )
 
@@ -58,6 +60,16 @@ def get_recommendations(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Personalized recommendations are not available",
+        ) from exc
+    except RecommendationProviderTimeoutError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Recommendation model timed out",
+        ) from exc
+    except RecommendationProviderResponseError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Recommendation model returned an invalid response",
         ) from exc
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from typing import Any
 
 import boto3
@@ -8,6 +9,8 @@ from botocore.config import Config as BotocoreConfig
 
 from app.core.config import Settings
 from app.core.config_validation import ConfigurationError
+
+logger = logging.getLogger("movie_recommendation.aws")
 
 
 class AWSResourceValidationError(ConfigurationError):
@@ -20,9 +23,25 @@ class AWSClients:
     s3_client: Any
     sagemaker_client: Any | None
     sagemaker_runtime_client: Any | None
+    sts_client: Any | None = None
 
 
-def create_aws_clients(settings: Settings) -> AWSClients:
+def create_aws_session(settings: Settings) -> Any:
+    """Create one boto3 Session using profile or the default provider chain."""
+
+    session_options: dict[str, Any] = {
+        "region_name": settings.aws.region,
+    }
+    if settings.aws.profile:
+        session_options["profile_name"] = settings.aws.profile
+    return boto3.Session(**session_options)
+
+
+def create_aws_clients(
+    settings: Settings,
+    *,
+    session: Any | None = None,
+) -> AWSClients:
     """Create configured SDK clients once for application-wide reuse."""
 
     client_config = BotocoreConfig(
@@ -33,28 +52,30 @@ def create_aws_clients(settings: Settings) -> AWSClients:
             "mode": settings.aws.retry_mode,
         },
     )
-    common = {
-        "region_name": settings.aws.region,
-        "endpoint_url": settings.aws.endpoint_url,
-        "config": client_config,
-    }
-    dynamodb_resource = boto3.resource("dynamodb", **common)
-    s3_client = boto3.client("s3", **common)
+    session = session or create_aws_session(settings)
+    common: dict[str, Any] = {"config": client_config}
+    if settings.aws.endpoint_url:
+        common["endpoint_url"] = settings.aws.endpoint_url
+
+    dynamodb_resource = session.resource("dynamodb", **common)
+    s3_client = session.client("s3", **common)
     sagemaker_client = (
-        boto3.client("sagemaker", **common)
+        session.client("sagemaker", **common)
         if settings.sagemaker.enabled
         else None
     )
     sagemaker_runtime_client = (
-        boto3.client("sagemaker-runtime", **common)
+        session.client("sagemaker-runtime", **common)
         if settings.sagemaker.enabled
         else None
     )
+    sts_client = session.client("sts", **common)
     clients = AWSClients(
         dynamodb_resource=dynamodb_resource,
         s3_client=s3_client,
         sagemaker_client=sagemaker_client,
         sagemaker_runtime_client=sagemaker_runtime_client,
+        sts_client=sts_client,
     )
     if settings.aws.validate_resources:
         validate_aws_resources(settings=settings, clients=clients)
@@ -66,14 +87,18 @@ def validate_aws_resources(
     settings: Settings,
     clients: AWSClients,
 ) -> None:
-    """Fail startup if credentials, tables, keys, bucket or endpoint differ."""
+    """Validate required data stores; report SageMaker as optional health."""
 
     try:
-        sts = boto3.client(
-            "sts",
-            region_name=settings.aws.region,
-            endpoint_url=settings.aws.endpoint_url,
-        )
+        sts = clients.sts_client
+        if sts is None:
+            session = create_aws_session(settings)
+            options = (
+                {"endpoint_url": settings.aws.endpoint_url}
+                if settings.aws.endpoint_url
+                else {}
+            )
+            sts = session.client("sts", **options)
         sts.get_caller_identity()
 
         dynamodb_client = clients.dynamodb_resource.meta.client
@@ -126,7 +151,18 @@ def validate_aws_resources(
                 MaxKeys=1,
             )
 
-        if settings.sagemaker.enabled:
+    except AWSResourceValidationError:
+        raise
+    except Exception as exc:
+        raise AWSResourceValidationError(
+            "AWS startup validation failed. Verify identity, Region, IAM "
+            "permissions, DynamoDB tables, and S3 settings."
+        ) from exc
+
+    # Personalized inference is deliberately allowed to be stopped between
+    # demos/training runs. It must not take guest browsing or core APIs down.
+    if settings.sagemaker.enabled:
+        try:
             if clients.sagemaker_client is None:
                 raise AWSResourceValidationError(
                     "SageMaker client was not initialized"
@@ -134,14 +170,18 @@ def validate_aws_resources(
             endpoint = clients.sagemaker_client.describe_endpoint(
                 EndpointName=settings.sagemaker.endpoint_name
             )
-            if endpoint.get("EndpointStatus") != "InService":
-                raise AWSResourceValidationError(
-                    "Configured SageMaker endpoint is not InService"
+            status = str(endpoint.get("EndpointStatus", "Unknown"))
+            if status != "InService":
+                logger.warning(
+                    "SageMaker endpoint is not ready endpoint=%s status=%s",
+                    settings.sagemaker.endpoint_name,
+                    status,
                 )
-    except AWSResourceValidationError:
-        raise
-    except Exception as exc:
-        raise AWSResourceValidationError(
-            "AWS startup validation failed. Verify identity, Region, IAM "
-            "permissions, DynamoDB tables, S3 bucket, and SageMaker settings."
-        ) from exc
+        except Exception as exc:
+            logger.warning(
+                "SageMaker startup health check failed endpoint=%s "
+                "error_type=%s; personalized requests will return a "
+                "controlled error until the endpoint is available",
+                settings.sagemaker.endpoint_name or "unconfigured",
+                type(exc).__name__,
+            )

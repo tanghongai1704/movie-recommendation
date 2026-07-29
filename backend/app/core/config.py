@@ -24,6 +24,8 @@ from app.core.config_validation import (
     validate_sagemaker_resource_name,
 )
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 
 @dataclass(frozen=True)
 class ApplicationSettings:
@@ -160,12 +162,18 @@ class Settings:
         s3_bucket = validate_s3_bucket_name(
             str(environment_value("AWS_S3_BUCKET", required=True))
         )
+        configured_endpoint_name = environment_value(
+            "AWS_SAGEMAKER_ENDPOINT_NAME"
+        )
         sagemaker_enabled = boolean_value(
             "AWS_SAGEMAKER_ENABLED",
-            default=False,
+            # Existing deployments predate the explicit enable flag. A
+            # configured endpoint therefore enables inference unless an
+            # operator deliberately sets this flag to false.
+            default=bool(configured_endpoint_name),
         )
         sagemaker_endpoint_name = validate_sagemaker_resource_name(
-            environment_value("AWS_SAGEMAKER_ENDPOINT_NAME"),
+            configured_endpoint_name,
             name="AWS_SAGEMAKER_ENDPOINT_NAME",
             required=sagemaker_enabled,
         )
@@ -180,7 +188,7 @@ class Settings:
             )
 
         return cls(
-            project_root=Path(__file__).resolve().parents[2],
+            project_root=PROJECT_ROOT,
             application=ApplicationSettings(
                 environment=str(
                     environment_value("APP_ENV", default="development")
@@ -462,7 +470,7 @@ class Settings:
                     "AWS_SAGEMAKER_RECOMMENDATION_LIMIT",
                     default=10,
                     minimum=1,
-                    maximum=100,
+                    maximum=50,
                 ),
             ),
             logging=LoggingSettings(
@@ -499,7 +507,7 @@ class Settings:
                 model_version=str(
                     environment_value(
                         "RECOMMENDATION_MODEL_VERSION",
-                        default="sagemaker-untrained",
+                        default="endpoint-unversioned",
                     )
                 ),
             ),

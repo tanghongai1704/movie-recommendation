@@ -34,11 +34,14 @@ Personalized recommendations:
 ```text
 RecommendationCacheRepository.GetItem
   -> valid cache: MoviesRepository.BatchGetItem
-  -> miss: SageMakerRecommendationProvider
+  -> miss: Users + UserInteractions context
+  -> SageMaker Runtime InvokeEndpoint
+  -> MoviesRepository.BatchGetItem
+  -> best-effort RecommendationCache upsert
 ```
 
-The provider does not create local recommendations. Until its endpoint
-invocation is implemented and enabled, cache misses return HTTP 503.
+The provider does not create local recommendations. Endpoint failures return a
+controlled `502`, `503`, or `504`; guest browsing remains independent.
 
 Interactions:
 
@@ -82,7 +85,11 @@ clients. With `AWS_VALIDATE_RESOURCES=True`, startup verifies:
 - all five tables are `ACTIVE`
 - exact partition/sort keys
 - S3 bucket and prefix-list access
-- enabled SageMaker endpoint is `InService`
+
+The enabled SageMaker endpoint is also checked, but it is an optional runtime
+dependency: an absent/stopped endpoint logs a warning instead of taking guest
+browsing and core APIs down. Personalized cache misses return a controlled
+`502`/`503`/`504` until inference is available.
 
 See [Environment Variables](../docs/aws/environment.md).
 
@@ -94,6 +101,14 @@ Backend request handlers do not load datasets. Operational transfers use:
 python scripts/s3_dataset.py list raw
 python scripts/s3_dataset.py upload raw /path/to/file
 python scripts/s3_dataset.py download serving object.json /tmp/object.json
+```
+
+SageMaker endpoint diagnostics:
+
+```bash
+python scripts/test_sagemaker_endpoint.py --describe
+python scripts/test_sagemaker_endpoint.py \
+  --invoke --scenario onboarding_user --genre Drama
 ```
 
 ## Development and tests

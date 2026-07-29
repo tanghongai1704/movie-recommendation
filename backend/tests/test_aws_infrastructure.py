@@ -5,6 +5,7 @@ from unittest.mock import patch
 from app.aws.infrastructure import (
     AWSClients,
     AWSResourceValidationError,
+    create_aws_session,
     validate_aws_resources,
 )
 
@@ -62,9 +63,23 @@ class FakeS3Client:
         return {}
 
 
+class UnavailableSageMakerClient:
+    def describe_endpoint(self, *, EndpointName: str) -> dict[str, str]:
+        del EndpointName
+        raise RuntimeError("endpoint is intentionally stopped")
+
+
 def test_settings() -> SimpleNamespace:
     return SimpleNamespace(
-        aws=SimpleNamespace(region="ap-southeast-1", endpoint_url=None),
+        aws=SimpleNamespace(
+            region="ap-southeast-1",
+            profile=None,
+            endpoint_url=None,
+            connect_timeout_seconds=3,
+            read_timeout_seconds=10,
+            max_attempts=3,
+            retry_mode="standard",
+        ),
         dynamodb=SimpleNamespace(
             movies_table="Movies",
             popular_table="PopularMovies",
@@ -89,7 +104,11 @@ def test_settings() -> SimpleNamespace:
 
 
 class AWSInfrastructureTests(unittest.TestCase):
-    def make_clients(self) -> tuple[AWSClients, FakeS3Client]:
+    def make_clients(
+        self,
+        *,
+        sagemaker_client: object | None = None,
+    ) -> tuple[AWSClients, FakeS3Client]:
         dynamodb_client = FakeDynamoDBClient()
         s3_client = FakeS3Client()
         return (
@@ -98,8 +117,9 @@ class AWSInfrastructureTests(unittest.TestCase):
                     meta=SimpleNamespace(client=dynamodb_client)
                 ),
                 s3_client=s3_client,
-                sagemaker_client=None,
+                sagemaker_client=sagemaker_client,
                 sagemaker_runtime_client=None,
+                sts_client=FakeSTSClient(),
             ),
             s3_client,
         )
@@ -107,14 +127,10 @@ class AWSInfrastructureTests(unittest.TestCase):
     def test_validates_identity_tables_keys_bucket_and_prefix_access(self) -> None:
         clients, s3_client = self.make_clients()
 
-        with patch(
-            "app.aws.infrastructure.boto3.client",
-            return_value=FakeSTSClient(),
-        ):
-            validate_aws_resources(
-                settings=test_settings(),
-                clients=clients,
-            )
+        validate_aws_resources(
+            settings=test_settings(),
+            clients=clients,
+        )
 
         self.assertEqual(s3_client.head_calls, 1)
         self.assertEqual(len(s3_client.prefixes), 9)
@@ -125,22 +141,49 @@ class AWSInfrastructureTests(unittest.TestCase):
             ("id", "HASH")
         ]
         try:
-            with patch(
-                "app.aws.infrastructure.boto3.client",
-                return_value=FakeSTSClient(),
+            with self.assertRaisesRegex(
+                AWSResourceValidationError,
+                "key schema mismatch",
             ):
-                with self.assertRaisesRegex(
-                    AWSResourceValidationError,
-                    "key schema mismatch",
-                ):
-                    validate_aws_resources(
-                        settings=test_settings(),
-                        clients=clients,
-                    )
+                validate_aws_resources(
+                    settings=test_settings(),
+                    clients=clients,
+                )
         finally:
             clients.dynamodb_resource.meta.client.KEY_SCHEMAS["Movies"] = [
                 ("movie_id", "HASH")
             ]
+
+    def test_unavailable_sagemaker_does_not_block_core_startup(self) -> None:
+        settings = test_settings()
+        settings.sagemaker.enabled = True
+        settings.sagemaker.endpoint_name = "movie-rec-endpoint"
+        clients, _ = self.make_clients(
+            sagemaker_client=UnavailableSageMakerClient()
+        )
+
+        with self.assertLogs("movie_recommendation.aws", level="WARNING"):
+            validate_aws_resources(settings=settings, clients=clients)
+
+    def test_session_uses_configured_profile(self) -> None:
+        settings = test_settings()
+        settings.aws.profile = "project-dev"
+
+        with patch("app.aws.infrastructure.boto3.Session") as session:
+            create_aws_session(settings)
+
+        session.assert_called_once_with(
+            region_name="ap-southeast-1",
+            profile_name="project-dev",
+        )
+
+    def test_session_uses_default_credential_chain_without_profile(self) -> None:
+        settings = test_settings()
+
+        with patch("app.aws.infrastructure.boto3.Session") as session:
+            create_aws_session(settings)
+
+        session.assert_called_once_with(region_name="ap-southeast-1")
 
 
 if __name__ == "__main__":

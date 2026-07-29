@@ -166,6 +166,19 @@ class ConfigurationTests(unittest.TestCase):
             ):
                 Settings.from_environment()
 
+    def test_endpoint_name_enables_sagemaker_for_existing_env_files(self) -> None:
+        environment = self.canonical_environment()
+        environment["AWS_SAGEMAKER_ENDPOINT_NAME"] = "movie-rec-endpoint"
+
+        with patch.dict(os.environ, environment, clear=True):
+            settings = Settings.from_environment()
+
+        self.assertTrue(settings.sagemaker.enabled)
+        self.assertEqual(
+            settings.sagemaker.endpoint_name,
+            "movie-rec-endpoint",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
