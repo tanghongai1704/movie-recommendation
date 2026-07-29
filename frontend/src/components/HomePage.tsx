@@ -1,6 +1,7 @@
 import type { AuthUserState } from '../features/auth/useAuth';
 import type { Movie } from '../types/api';
 import MovieSection from './MovieSection';
+import SiteHeader from './SiteHeader';
 
 interface HomePageProps {
     userState: AuthUserState;
@@ -9,12 +10,13 @@ interface HomePageProps {
     moviesLoading: boolean;
     moviesError: string | null;
     interactionError: string | null;
+    onHome: () => void;
     onSignIn: () => void;
     onProfile: () => void;
     onLogout: () => Promise<void>;
     onMovieClick: (movieId: string) => void;
     onWatch: (movieId: string) => void;
-    onRate: (movieId: string, rating: number) => void;
+    onRate: (movieId: string, rating: number) => Promise<boolean>;
 }
 
 const featuredMovie = {
@@ -37,6 +39,7 @@ function HomePage({
     moviesLoading,
     moviesError,
     interactionError,
+    onHome,
     onSignIn,
     onProfile,
     onLogout,
@@ -48,54 +51,18 @@ function HomePage({
 
     return (
         <div className="min-h-screen bg-[#05070b] text-white">
-            <header className="sticky top-0 z-20 border-b border-white/10 bg-[#05070b]/90 backdrop-blur">
-                <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center gap-6">
-                        <div className="text-2xl font-black tracking-[0.35em] text-red-600">
-                            STREAMVERSE
-                        </div>
-                        <nav className="hidden items-center gap-4 text-sm font-medium text-zinc-300 md:flex">
-                            <a href="#" className="transition hover:text-white">Home</a>
-                            <a href="#" className="transition hover:text-white">Series</a>
-                            <a href="#" className="transition hover:text-white">Films</a>
-                            <a href="#" className="transition hover:text-white">New &amp; Popular</a>
-                        </nav>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        {isGuest ? (
-                            <button
-                                onClick={onSignIn}
-                                className="rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-white/40 hover:bg-white/5"
-                            >
-                                Sign In
-                            </button>
-                        ) : (
-                            <>
-                                <span className="text-sm text-zinc-300">Hi, {username}</span>
-                                <button
-                                    onClick={onProfile}
-                                    className="rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-white/40 hover:bg-white/5"
-                                >
-                                    Profile
-                                </button>
-                                <button
-                                    onClick={() => void onLogout()}
-                                    className="rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-zinc-200 transition hover:border-white/40 hover:bg-white/5"
-                                >
-                                    Sign Out
-                                </button>
-                            </>
-                        )}
-                        <button
-                            onClick={() => onWatch(featuredMovie.id)}
-                            className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
-                        >
-                            Start Watching
-                        </button>
-                    </div>
-                </div>
-            </header>
+            <SiteHeader
+                userState={userState}
+                username={username}
+                onHome={onHome}
+                onSignIn={onSignIn}
+                onProfile={onProfile}
+                onLogout={onLogout}
+                primaryAction={{
+                    label: 'Start Watching',
+                    onClick: () => onWatch(featuredMovie.id),
+                }}
+            />
 
             <main>
                 <section className="relative isolate overflow-hidden border-b border-white/10">
@@ -130,7 +97,7 @@ function HomePage({
                                     ▶ Play Now
                                 </button>
                                 <button
-                                    onClick={() => onRate(featuredMovie.id, 5)}
+                                    onClick={() => void onRate(featuredMovie.id, 5)}
                                     className="rounded-full border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/20"
                                 >
                                     ★ Rate 5
@@ -199,12 +166,10 @@ function HomePage({
                         </div>
                     ) : (
                         <MovieSection
-                            title={isGuest ? 'Popular Now' : 'Movies For You'}
+                            title={isGuest ? 'Popular Now' : 'Movies for you'}
                             movies={movies}
                             fallbackImage={featuredMovie.image}
                             onMovieClick={onMovieClick}
-                            onWatch={onWatch}
-                            onRate={onRate}
                         />
                     )}
                 </section>

@@ -232,8 +232,8 @@ class DynamoDBRepositoryTests(unittest.TestCase):
             event_id=UUID("00000000-0000-4000-8000-000000000001"),
             movie_id="movie-1",
             interaction_type=InteractionType.WATCH,
-            interaction_action=InteractionAction.WATCH_START,
-            interaction_value=None,
+            interaction_action=InteractionAction.RECORD,
+            interaction_value=0.6,
             timestamp=self.timestamp,
             session_id="session-1",
         )

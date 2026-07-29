@@ -230,7 +230,7 @@ Request:
 ```json
 {
   "interaction_type": "rating",
-  "interaction_action": "submit",
+  "interaction_action": "set",
   "movie_id": "1",
   "interaction_value": 4.5,
   "timestamp": "2026-07-28T08:10:00Z",
@@ -240,16 +240,20 @@ Request:
 
 Supported type/action combinations:
 
-| `interaction_type` | Allowed `interaction_action` |
-|---|---|
-| `click` | `open_detail` |
-| `watch` | `start`, `progress`, `complete` |
-| `rating` | `submit` |
-| `reaction` | `like`, `dislike` |
-| `share` | `native_share`, `copy_link` |
+| User action | `interaction_type` | `interaction_action` | `interaction_value` |
+|---|---|---|---:|
+| Open movie | `click` | `record` | `1` |
+| Reach 60% watched | `watch` | `record` | `0.6` |
+| Share movie | `share` | `record` | `1` |
+| Like movie | `reaction` | `set` | `1` |
+| Dislike movie | `reaction` | `set` | `-1` |
+| Remove reaction | `reaction` | `clear` | `0` |
+| Rate 4.5 stars | `rating` | `set` | `4.5` |
+| Remove rating | `rating` | `clear` | `0` |
 
-`interaction_value` is required for rating and must be between 0.5 and 5.0.
-For watch events it may contain a non-negative progress value.
+All canonical interaction requests require `interaction_value`. Watch values
+are normalized progress ratios from `0` through `1`. Rating `set` values are
+from `0.5` through `5.0` in `0.5` increments.
 
 Response: `201 Created`
 
@@ -260,7 +264,7 @@ Response: `201 Created`
   "event_id": "f54f347c-d55f-57f8-a46f-61832bd53484",
   "movie_id": "1",
   "interaction_type": "rating",
-  "interaction_action": "submit",
+  "interaction_action": "set",
   "interaction_value": 4.5,
   "timestamp": "2026-07-28T08:10:00Z",
   "session_id": "web-session-id"
@@ -279,6 +283,45 @@ Status codes:
 - `401` unauthenticated/invalid JWT
 - `422` missing idempotency key or invalid interaction fields
 - `503` persistence unavailable
+
+### GET `/users/me/ratings/{movie_id}`
+
+Auth: registered user
+
+Returns the authenticated user's most recent `rating` interaction for
+the requested movie. This is a read-only projection of UserInteractions and
+does not create or update any DynamoDB item.
+
+Rated response:
+
+```json
+{
+  "movie_id": "1",
+  "rating": 4.0
+}
+```
+
+When the user has not rated the movie, `rating` is `null`.
+
+Status codes:
+
+- `200` rating or explicit unrated state returned
+- `401` unauthenticated/invalid JWT
+- `503` persistence unavailable
+
+### GET `/users/me/reactions/{movie_id}`
+
+Auth: registered user
+
+Returns the latest effective reaction after applying `set` and `clear` events.
+The `reaction` value is `"like"`, `"dislike"`, or `null`.
+
+```json
+{
+  "movie_id": "1",
+  "reaction": "like"
+}
+```
 
 ## Personalized recommendations
 

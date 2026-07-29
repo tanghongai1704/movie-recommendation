@@ -7,7 +7,12 @@ from app.api.dependencies.auth import get_current_user
 from app.container import interaction_service
 from app.models.user import User
 from app.repositories.dynamodb_base import DynamoDBRepositoryError
-from app.schemas.interaction import InteractionCreate, InteractionResponse
+from app.schemas.interaction import (
+    InteractionCreate,
+    InteractionResponse,
+    UserMovieRatingResponse,
+    UserMovieReactionResponse,
+)
 from app.services.interaction_service import InteractionService
 
 router = APIRouter()
@@ -70,4 +75,46 @@ def record_interaction(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Unable to record interaction",
+        ) from exc
+
+
+@router.get(
+    "/users/me/ratings/{movie_id}",
+    response_model=UserMovieRatingResponse,
+)
+def get_current_user_rating(
+    movie_id: str,
+    user: User = Depends(get_current_user),
+    service: InteractionService = Depends(get_interaction_service),
+) -> UserMovieRatingResponse:
+    try:
+        return service.get_latest_rating(
+            user_id=user.user_id,
+            movie_id=movie_id,
+        )
+    except DynamoDBRepositoryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to load rating",
+        ) from exc
+
+
+@router.get(
+    "/users/me/reactions/{movie_id}",
+    response_model=UserMovieReactionResponse,
+)
+def get_current_user_reaction(
+    movie_id: str,
+    user: User = Depends(get_current_user),
+    service: InteractionService = Depends(get_interaction_service),
+) -> UserMovieReactionResponse:
+    try:
+        return service.get_latest_reaction(
+            user_id=user.user_id,
+            movie_id=movie_id,
+        )
+    except DynamoDBRepositoryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to load reaction",
         ) from exc

@@ -37,6 +37,17 @@ class FakeDynamoDBTable:
     def scan(self, **_: Any) -> dict[str, Any]:
         return {"Items": [dict(item) for item in self.items.values()]}
 
+    def query(self, **options: Any) -> dict[str, Any]:
+        partition_key = options["ExpressionAttributeNames"]["#pk"]
+        partition_value = options["ExpressionAttributeValues"][":pk"]
+        return {
+            "Items": [
+                dict(item)
+                for item in self.items.values()
+                if item.get(partition_key) == partition_value
+            ]
+        }
+
     def _key(self, item: dict[str, Any]) -> tuple[Any, ...]:
         return tuple(item[field] for field in self.KEY_FIELDS[self.name])
 
@@ -185,8 +196,8 @@ class AuthenticationHTTPFlowTests(unittest.TestCase):
         }
         payload = {
             "interaction_type": "reaction",
-            "interaction_action": "like",
-            "interaction_value": None,
+            "interaction_action": "set",
+            "interaction_value": 1,
             "movie_id": "265330",
             "timestamp": "2026-07-28T12:00:00Z",
             "session_id": "session-1",
@@ -208,7 +219,8 @@ class AuthenticationHTTPFlowTests(unittest.TestCase):
         self.assertEqual(first.json(), retry.json())
         interaction = first.json()
         self.assertEqual(interaction["interaction_type"], "reaction")
-        self.assertEqual(interaction["interaction_action"], "like")
+        self.assertEqual(interaction["interaction_action"], "set")
+        self.assertEqual(interaction["interaction_value"], 1)
         self.assertIn(interaction["event_id"], interaction["interaction_key"])
         self.assertEqual(
             len(TABLES["UserInteractions"].items),
@@ -231,7 +243,8 @@ class AuthenticationHTTPFlowTests(unittest.TestCase):
             headers={"Authorization": f"Bearer {token}"},
             json={
                 "interaction_type": "share",
-                "interaction_action": "copy_link",
+                "interaction_action": "record",
+                "interaction_value": 1,
                 "movie_id": "265330",
                 "timestamp": "2026-07-28T12:00:00Z",
                 "session_id": "session-1",
@@ -239,6 +252,133 @@ class AuthenticationHTTPFlowTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 422)
+
+    def test_current_user_rating_returns_latest_rating_or_null(self) -> None:
+        register = self.client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "rating@example.com",
+                "username": "rating-user",
+                "password": "password123",
+            },
+        )
+        token = register.json()["access_token"]
+        auth_headers = {"Authorization": f"Bearer {token}"}
+
+        unrated = self.client.get(
+            "/api/v1/users/me/ratings/265330",
+            headers=auth_headers,
+        )
+        self.assertEqual(
+            unrated.json(),
+            {"movie_id": "265330", "rating": None},
+        )
+
+        for index, (timestamp, rating) in enumerate(
+            [
+                ("2026-07-28T12:00:00Z", 2.0),
+                ("2026-07-28T13:00:00Z", 4.0),
+            ],
+            start=1,
+        ):
+            response = self.client.post(
+                "/api/v1/users/me/interactions",
+                headers={
+                    **auth_headers,
+                    "Idempotency-Key": f"rating-request-{index:08d}",
+                },
+                json={
+                    "interaction_type": "rating",
+                    "interaction_action": "set",
+                    "interaction_value": rating,
+                    "movie_id": "265330",
+                    "timestamp": timestamp,
+                    "session_id": "session-1",
+                },
+            )
+            self.assertEqual(response.status_code, 201)
+
+        rated = self.client.get(
+            "/api/v1/users/me/ratings/265330",
+            headers=auth_headers,
+        )
+
+        self.assertEqual(
+            rated.json(),
+            {"movie_id": "265330", "rating": 4.0},
+        )
+
+        cleared = self.client.post(
+            "/api/v1/users/me/interactions",
+            headers={
+                **auth_headers,
+                "Idempotency-Key": "rating-clear-request-00000001",
+            },
+            json={
+                "interaction_type": "rating",
+                "interaction_action": "clear",
+                "interaction_value": 0,
+                "movie_id": "265330",
+                "timestamp": "2026-07-28T14:00:00Z",
+                "session_id": "session-1",
+            },
+        )
+        self.assertEqual(cleared.status_code, 201)
+        self.assertIsNone(
+            self.client.get(
+                "/api/v1/users/me/ratings/265330",
+                headers=auth_headers,
+            ).json()["rating"]
+        )
+
+    def test_current_user_reaction_tracks_set_and_clear(self) -> None:
+        register = self.client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "reaction@example.com",
+                "username": "reaction-user",
+                "password": "password123",
+            },
+        )
+        token = register.json()["access_token"]
+        auth_headers = {"Authorization": f"Bearer {token}"}
+        endpoint = "/api/v1/users/me/reactions/265330"
+
+        self.assertIsNone(
+            self.client.get(endpoint, headers=auth_headers).json()["reaction"]
+        )
+
+        for index, (timestamp, action, value, expected) in enumerate(
+            [
+                ("2026-07-28T12:00:00Z", "set", 1, "like"),
+                ("2026-07-28T13:00:00Z", "set", -1, "dislike"),
+                ("2026-07-28T14:00:00Z", "clear", 0, None),
+            ],
+            start=1,
+        ):
+            stored = self.client.post(
+                "/api/v1/users/me/interactions",
+                headers={
+                    **auth_headers,
+                    "Idempotency-Key": f"reaction-change-{index:08d}",
+                },
+                json={
+                    "interaction_type": "reaction",
+                    "interaction_action": action,
+                    "interaction_value": value,
+                    "movie_id": "265330",
+                    "timestamp": timestamp,
+                    "session_id": "session-1",
+                },
+            )
+            self.assertEqual(stored.status_code, 201)
+            self.assertEqual(
+                self.client.get(
+                    endpoint,
+                    headers=auth_headers,
+                ).json()["reaction"],
+                expected,
+            )
 
     def test_legacy_seed_login_does_not_rewrite_users_item(self) -> None:
         TABLES["Users"].put_item(

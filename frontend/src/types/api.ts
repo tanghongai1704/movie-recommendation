@@ -72,22 +72,13 @@ export type InteractionType =
     | 'reaction'
     | 'share';
 
-export type InteractionAction =
-    | 'open_detail'
-    | 'start'
-    | 'progress'
-    | 'complete'
-    | 'submit'
-    | 'like'
-    | 'dislike'
-    | 'native_share'
-    | 'copy_link';
+export type InteractionAction = 'record' | 'set' | 'clear';
 
 export interface CreateInteractionRequest {
     interaction_type: InteractionType;
     interaction_action: InteractionAction;
     movie_id: string;
-    interaction_value?: number;
+    interaction_value: number;
     timestamp: string;
     session_id: string;
 }
@@ -107,6 +98,16 @@ export interface Interaction {
     interaction_value: number | null;
     timestamp: string;
     session_id: string;
+}
+
+export interface UserMovieRating {
+    movie_id: string;
+    rating: number | null;
+}
+
+export interface UserMovieReaction {
+    movie_id: string;
+    reaction: 'like' | 'dislike' | null;
 }
 
 export interface RecommendationItem extends Movie {

@@ -115,8 +115,8 @@ class DomainModelTests(unittest.TestCase):
             event_id=event_id,
             movie_id="movie-1",
             interaction_type=InteractionType.CLICK,
-            interaction_action=InteractionAction.OPEN_DETAIL,
-            interaction_value=None,
+            interaction_action=InteractionAction.RECORD,
+            interaction_value=1,
             timestamp=timestamp,
             session_id="session-1",
         )

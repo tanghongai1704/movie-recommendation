@@ -18,6 +18,12 @@ class InteractionType(str, Enum):
 class InteractionAction(str, Enum):
     """Supported actions within each interaction category."""
 
+    RECORD = "record"
+    SET = "set"
+    CLEAR = "clear"
+
+    # Legacy values remain readable so previously persisted interaction events
+    # can still be deserialized during migration.
     OPEN_DETAIL = "open_detail"
     WATCH_START = "start"
     WATCH_PROGRESS = "progress"
@@ -52,7 +58,7 @@ class UserInteraction(BaseModel):
     movie_id: str = Field(min_length=1)  # Reference to the interacted Movies.movie_id.
     interaction_type: InteractionType  # Behavior category consumed by analytics and ML.
     interaction_action: InteractionAction  # Concrete action within the behavior category.
-    interaction_value: float | None  # Optional numeric value such as rating or watch progress.
+    interaction_value: float | None  # Canonical numeric signal; nullable only for legacy records.
     timestamp: datetime  # UTC time at which the behavior occurred.
     session_id: str = Field(min_length=1)  # Client session identifier used to group related behavior.
 

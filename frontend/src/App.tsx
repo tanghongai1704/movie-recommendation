@@ -100,9 +100,16 @@ function App() {
                 movie={movieDetail.movie}
                 isLoading={movieDetail.isLoading}
                 error={movieDetail.error}
+                userState={auth.userState}
+                username={auth.user?.username || null}
                 onBack={() => navigate('home')}
-                onWatch={movieActions.watchMovie}
+                onSignIn={() => navigate('login')}
+                onProfile={() => navigate('profile')}
+                onLogout={auth.logout}
+                onWatch={movieActions.canWatchMovie}
+                onWatchProgress={movieActions.recordWatchProgress}
                 onRate={movieActions.rateMovie}
+                onClearRating={movieActions.clearMovieRating}
                 onReact={movieActions.reactToMovie}
                 onShare={movieActions.shareMovie}
                 interactionError={movieActions.error}
@@ -118,6 +125,7 @@ function App() {
             moviesLoading={movies.isLoading}
             moviesError={movies.error}
             interactionError={movieActions.error}
+            onHome={() => navigate('home')}
             onSignIn={() => navigate('login')}
             onProfile={() => navigate('profile')}
             onLogout={auth.logout}
@@ -125,7 +133,7 @@ function App() {
                 movieActions.clickMovie(selectedMovieId);
                 navigateToMovie(selectedMovieId);
             }}
-            onWatch={movieActions.watchMovie}
+            onWatch={movieActions.canWatchMovie}
             onRate={movieActions.rateMovie}
         />
     );

@@ -3,6 +3,8 @@ import type {
     CreateInteractionInput,
     CreateInteractionRequest,
     Interaction,
+    UserMovieRating,
+    UserMovieReaction,
 } from '../types/api';
 
 const SESSION_STORAGE_KEY = 'movie-recommendation.session-id';
@@ -19,6 +21,18 @@ function getSessionId(): string {
 }
 
 export const interactionService = {
+    getMyRating(movieId: string): Promise<UserMovieRating> {
+        return apiClient.get<UserMovieRating>(
+            `/users/me/ratings/${encodeURIComponent(movieId)}`,
+        );
+    },
+
+    getMyReaction(movieId: string): Promise<UserMovieReaction> {
+        return apiClient.get<UserMovieReaction>(
+            `/users/me/reactions/${encodeURIComponent(movieId)}`,
+        );
+    },
+
     async createInteraction(
         interaction: CreateInteractionInput,
     ): Promise<Interaction> {

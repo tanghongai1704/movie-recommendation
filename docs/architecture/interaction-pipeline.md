@@ -11,13 +11,16 @@ Editable FigJam versions of both sequence diagrams are available in the
 
 Supported interaction types and actions:
 
-| `interaction_type` | Allowed `interaction_action` | `interaction_value` |
-|---|---|---|
-| `click` | `open_detail` | Optional |
-| `watch` | `start`, `progress`, `complete` | Optional non-negative progress value |
-| `rating` | `submit` | Required value from 0.5 through 5.0 |
-| `reaction` | `like`, `dislike` | Optional |
-| `share` | `native_share`, `copy_link` | Optional |
+| User action | `interaction_type` | `interaction_action` | `interaction_value` |
+|---|---|---|---:|
+| Open movie | `click` | `record` | `1` |
+| Reach 60% watched | `watch` | `record` | `0.6` |
+| Share movie | `share` | `record` | `1` |
+| Like movie | `reaction` | `set` | `1` |
+| Dislike movie | `reaction` | `set` | `-1` |
+| Remove reaction | `reaction` | `clear` | `0` |
+| Rate 4.5 stars | `rating` | `set` | `4.5` |
+| Remove rating | `rating` | `clear` | `0` |
 
 ## Canonical record
 

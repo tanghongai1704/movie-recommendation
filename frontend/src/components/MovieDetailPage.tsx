@@ -1,16 +1,33 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import type { AuthUserState } from '../features/auth/useAuth';
+import { useMovieRating } from '../features/interactions/useMovieRating';
+import {
+    useMovieReaction,
+    type MovieReaction,
+} from '../features/interactions/useMovieReaction';
 import { useSimulatedPlayback } from '../features/movies/useSimulatedPlayback';
 import type { Movie } from '../types/api';
+import SiteHeader from './SiteHeader';
 
 interface MovieDetailPageProps {
     movie: Movie | null;
     isLoading: boolean;
     error: string | null;
     interactionError: string | null;
+    userState: AuthUserState;
+    username: string | null;
     onBack: () => void;
+    onSignIn: () => void;
+    onProfile: () => void;
+    onLogout: () => Promise<void>;
     onWatch: (movieId: string) => boolean;
-    onRate: (movieId: string, rating: number) => boolean;
-    onReact: (movieId: string, reaction: 'like' | 'dislike') => boolean;
+    onWatchProgress: (movieId: string, progress: number) => void;
+    onRate: (movieId: string, rating: number) => Promise<boolean>;
+    onClearRating: (movieId: string) => Promise<boolean>;
+    onReact: (
+        movieId: string,
+        reaction: MovieReaction | null,
+    ) => Promise<boolean>;
     onShare: (movieId: string) => boolean;
 }
 
@@ -73,14 +90,265 @@ function DetailList({ label, values }: DetailListProps) {
     );
 }
 
+interface HalfStarRatingProps {
+    score: number;
+    onRate: (rating: number) => void;
+    disabled?: boolean;
+}
+
+const ratingSteps = Array.from({ length: 10 }, (_, index) => (index + 1) / 2);
+
+function HalfStarRating({
+    score,
+    onRate,
+    disabled = false,
+}: HalfStarRatingProps) {
+    const normalizedScore = Math.min(Math.max(score, 0), 5);
+    const [previewScore, setPreviewScore] = useState<number | null>(null);
+    const displayedScore = previewScore ?? normalizedScore;
+    const fillPercentage = (displayedScore / 5) * 100;
+
+    return (
+        <div
+            className="relative h-9 w-[180px]"
+            role="group"
+            aria-label={`Current rating: ${normalizedScore.toFixed(1)} out of 5`}
+        >
+            <div className="flex" aria-hidden="true">
+                {[1, 2, 3, 4, 5].map((star) => (
+                    <svg
+                        key={star}
+                        viewBox="0 0 24 24"
+                        className="h-9 w-9 shrink-0 fill-zinc-600"
+                    >
+                        <path d="m12 2.2 3 6.1 6.7 1-4.9 4.7 1.2 6.7-6-3.1-6 3.1 1.2-6.7-4.9-4.7 6.7-1 3-6.1Z" />
+                    </svg>
+                ))}
+            </div>
+            <span
+                className="pointer-events-none absolute inset-y-0 left-0 overflow-hidden"
+                style={{ width: `${fillPercentage}%` }}
+                aria-hidden="true"
+            >
+                <span className="flex w-[180px]">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                        <svg
+                            key={star}
+                            viewBox="0 0 24 24"
+                            className="h-9 w-9 shrink-0 fill-amber-400"
+                        >
+                            <path d="m12 2.2 3 6.1 6.7 1-4.9 4.7 1.2 6.7-6-3.1-6 3.1 1.2-6.7-4.9-4.7 6.7-1 3-6.1Z" />
+                        </svg>
+                    ))}
+                </span>
+            </span>
+            <div
+                className="absolute inset-0 grid grid-cols-10"
+                onMouseLeave={() => setPreviewScore(null)}
+            >
+                {ratingSteps.map((rating) => (
+                    <button
+                        key={rating}
+                        type="button"
+                        onClick={() => onRate(rating)}
+                        onMouseEnter={() => setPreviewScore(rating)}
+                        onFocus={() => setPreviewScore(rating)}
+                        onBlur={() => setPreviewScore(null)}
+                        disabled={disabled}
+                        className="h-9 focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-red-500 disabled:cursor-wait"
+                        aria-label={`Rate ${rating.toFixed(1)} stars`}
+                        title={`${rating.toFixed(1)} stars`}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function MovieRatingSummary({ movie }: { movie: Movie }) {
+    const fiveStarScore = Math.min(Math.max(movie.vote_average / 2, 0), 5);
+
+    return (
+        <div
+            className="mt-3 flex flex-wrap items-center gap-2 text-zinc-300"
+            aria-label={`${fiveStarScore.toFixed(1)} out of 5 from ${movie.vote_count.toLocaleString()} votes`}
+        >
+            <span className="text-2xl font-bold text-white">
+                {fiveStarScore.toFixed(1)}
+            </span>
+            <span className="text-xl text-amber-400" aria-hidden="true">
+                ★
+            </span>
+            <span className="text-sm uppercase text-zinc-400">
+                ({movie.vote_count.toLocaleString()} votes)
+            </span>
+        </div>
+    );
+}
+
+interface MovieEngagementProps {
+    movie: Movie;
+    userRating: number | null;
+    isRatingLoading: boolean;
+    onRate: (rating: number) => Promise<boolean>;
+    onClearRating: () => Promise<boolean>;
+    selectedReaction: MovieReaction | null;
+    isReactionLoading: boolean;
+    onReact: (reaction: MovieReaction) => Promise<boolean>;
+    onShare: (movieId: string) => boolean;
+}
+
+function MovieEngagement({
+    movie,
+    userRating,
+    isRatingLoading,
+    onRate,
+    onClearRating,
+    selectedReaction,
+    isReactionLoading,
+    onReact,
+    onShare,
+}: MovieEngagementProps) {
+    const selectedScore = Math.min(Math.max(userRating ?? 0, 0), 5);
+
+    return (
+        <section
+            className="mt-8 flex flex-col gap-6 rounded-2xl border border-white/15 bg-[#151515] px-5 py-5 shadow-xl shadow-black/30 sm:px-7 lg:flex-row lg:items-center"
+            aria-label="Movie rating and actions"
+        >
+            <div className="min-w-fit">
+                <div className="flex items-center justify-between gap-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
+                        Your rating
+                    </p>
+                    <span className="text-xs text-zinc-500" aria-live="polite">
+                        {userRating === null
+                            ? 'Not rated'
+                            : `${userRating.toFixed(1)} / 5`}
+                    </span>
+                </div>
+                <div className="mt-2">
+                    <HalfStarRating
+                        score={selectedScore}
+                        onRate={(rating) => void onRate(rating)}
+                        disabled={isRatingLoading}
+                    />
+                </div>
+                {userRating !== null && (
+                    <button
+                        type="button"
+                        onClick={() => void onClearRating()}
+                        disabled={isRatingLoading}
+                        className="mt-2 text-xs font-semibold text-zinc-400 underline-offset-4 transition hover:text-white hover:underline disabled:cursor-wait disabled:opacity-50"
+                    >
+                        Clear rating
+                    </button>
+                )}
+            </div>
+
+            <div className="hidden h-20 w-px bg-white/15 lg:block" aria-hidden="true" />
+
+            <div className="flex flex-wrap items-center gap-3 sm:gap-5">
+                <button
+                    type="button"
+                    onClick={() => void onReact('like')}
+                    disabled={isReactionLoading}
+                    className={`grid h-14 w-14 place-items-center rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-60 ${
+                        selectedReaction === 'like'
+                            ? 'border-red-500 bg-red-600/15 text-red-500 hover:bg-red-600/25 focus-visible:outline-red-500'
+                            : 'border-transparent text-zinc-300 hover:border-white/20 hover:bg-white/5 hover:text-white focus-visible:outline-white'
+                    }`}
+                    aria-label={
+                        selectedReaction === 'like'
+                            ? 'Remove like'
+                            : 'Like this movie'
+                    }
+                    aria-pressed={selectedReaction === 'like'}
+                    title={selectedReaction === 'like' ? 'Remove like' : 'Like'}
+                >
+                    <svg
+                        viewBox="0 0 24 24"
+                        className="h-7 w-7 fill-none stroke-current stroke-2"
+                        aria-hidden="true"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M8.2 20H4.5A1.5 1.5 0 0 1 3 18.5v-7A1.5 1.5 0 0 1 4.5 10h3.7v10Zm2 0V9.2l3.1-6.1c.3-.6 1.1-.9 1.7-.5.4.2.6.6.6 1v4.1h3.1c1.5 0 2.6 1.4 2.3 2.8l-1.7 7.4c-.3 1.2-1.3 2.1-2.6 2.1h-6.5Z"
+                        />
+                    </svg>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => void onReact('dislike')}
+                    disabled={isReactionLoading}
+                    className={`grid h-14 w-14 place-items-center rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-60 ${
+                        selectedReaction === 'dislike'
+                            ? 'border-red-500 bg-red-600/15 text-red-500 hover:bg-red-600/25 focus-visible:outline-red-500'
+                            : 'border-transparent text-zinc-300 hover:border-white/20 hover:bg-white/5 hover:text-white focus-visible:outline-white'
+                    }`}
+                    aria-label={
+                        selectedReaction === 'dislike'
+                            ? 'Remove dislike'
+                            : 'Dislike this movie'
+                    }
+                    aria-pressed={selectedReaction === 'dislike'}
+                    title={
+                        selectedReaction === 'dislike'
+                            ? 'Remove dislike'
+                            : 'Dislike'
+                    }
+                >
+                    <svg
+                        viewBox="0 0 24 24"
+                        className="h-7 w-7 rotate-180 fill-none stroke-current stroke-2"
+                        aria-hidden="true"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M8.2 20H4.5A1.5 1.5 0 0 1 3 18.5v-7A1.5 1.5 0 0 1 4.5 10h3.7v10Zm2 0V9.2l3.1-6.1c.3-.6 1.1-.9 1.7-.5.4.2.6.6.6 1v4.1h3.1c1.5 0 2.6 1.4 2.3 2.8l-1.7 7.4c-.3 1.2-1.3 2.1-2.6 2.1h-6.5Z"
+                        />
+                    </svg>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onShare(movie.movie_id)}
+                    className="inline-flex h-14 items-center gap-3 rounded-full px-3 text-sm font-semibold uppercase text-zinc-100 transition hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                >
+                    <svg
+                        viewBox="0 0 24 24"
+                        className="h-7 w-7 fill-none stroke-current stroke-2"
+                        aria-hidden="true"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="m14 5 5 5-5 5M19 10h-7a7 7 0 0 0-7 7v2"
+                        />
+                    </svg>
+                    Sharing
+                </button>
+            </div>
+        </section>
+    );
+}
+
 function MovieDetailPage({
     movie,
     isLoading,
     error,
     interactionError,
+    userState,
+    username,
     onBack,
+    onSignIn,
+    onProfile,
+    onLogout,
     onWatch,
+    onWatchProgress,
     onRate,
+    onClearRating,
     onReact,
     onShare,
 }: MovieDetailPageProps) {
@@ -88,43 +356,87 @@ function MovieDetailPage({
         () => (movie ? onWatch(movie.movie_id) : false),
         [movie, onWatch],
     );
-    const playback = useSimulatedPlayback(movie?.runtime ?? null, playMovie);
+    const recordWatchMilestone = useCallback(
+        (progress: number) => {
+            if (movie) {
+                onWatchProgress(movie.movie_id, progress);
+            }
+        },
+        [movie, onWatchProgress],
+    );
+    const playback = useSimulatedPlayback(
+        movie?.runtime ?? null,
+        playMovie,
+        recordWatchMilestone,
+        movie?.movie_id ?? null,
+    );
+    const movieRating = useMovieRating({
+        movieId: movie?.movie_id ?? null,
+        canLoadRating: userState !== 'guest',
+        onRate,
+        onClear: onClearRating,
+    });
+    const movieReaction = useMovieReaction({
+        movieId: movie?.movie_id ?? null,
+        canLoadReaction: userState !== 'guest',
+        onReact,
+    });
 
     if (isLoading) {
         return (
-            <main className="min-h-screen bg-[#05070b] px-4 py-8 text-white">
-                <div className="mx-auto max-w-7xl animate-pulse">
-                    <div className="h-10 w-32 rounded-full bg-zinc-800" />
-                    <div className="mt-8 aspect-video rounded-3xl bg-zinc-900" />
-                    <div className="mt-8 h-12 w-2/3 rounded bg-zinc-900" />
-                    <div className="mt-4 h-24 rounded bg-zinc-900" />
-                </div>
-            </main>
+            <div className="min-h-screen bg-[#05070b] text-white">
+                <SiteHeader
+                    userState={userState}
+                    username={username}
+                    onHome={onBack}
+                    onSignIn={onSignIn}
+                    onProfile={onProfile}
+                    onLogout={onLogout}
+                />
+                <main className="px-4 py-8">
+                    <div className="mx-auto max-w-7xl animate-pulse">
+                        <div className="h-10 w-32 rounded-full bg-zinc-800" />
+                        <div className="mt-8 aspect-video rounded-3xl bg-zinc-900" />
+                        <div className="mt-8 h-12 w-2/3 rounded bg-zinc-900" />
+                        <div className="mt-4 h-24 rounded bg-zinc-900" />
+                    </div>
+                </main>
+            </div>
         );
     }
 
     if (error || !movie) {
         return (
-            <main className="grid min-h-screen place-items-center bg-[#05070b] px-4 text-white">
-                <section className="max-w-lg rounded-3xl border border-red-500/30 bg-red-500/10 p-8 text-center">
-                    <p className="text-sm font-semibold uppercase tracking-[0.25em] text-red-300">
-                        Movie unavailable
-                    </p>
-                    <h1 className="mt-3 text-3xl font-semibold">
-                        We could not load this title.
-                    </h1>
-                    <p className="mt-4 text-zinc-300">
-                        {error || 'The requested movie does not exist.'}
-                    </p>
-                    <button
-                        type="button"
-                        onClick={onBack}
-                        className="mt-6 rounded-full bg-white px-6 py-3 text-sm font-semibold text-zinc-950"
-                    >
-                        Back to movies
-                    </button>
-                </section>
-            </main>
+            <div className="min-h-screen bg-[#05070b] text-white">
+                <SiteHeader
+                    userState={userState}
+                    username={username}
+                    onHome={onBack}
+                    onSignIn={onSignIn}
+                    onProfile={onProfile}
+                    onLogout={onLogout}
+                />
+                <main className="grid min-h-[calc(100vh-73px)] place-items-center px-4">
+                    <section className="max-w-lg rounded-3xl border border-red-500/30 bg-red-500/10 p-8 text-center">
+                        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-red-300">
+                            Movie unavailable
+                        </p>
+                        <h1 className="mt-3 text-3xl font-semibold">
+                            We could not load this title.
+                        </h1>
+                        <p className="mt-4 text-zinc-300">
+                            {error || 'The requested movie does not exist.'}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={onBack}
+                            className="mt-6 rounded-full bg-white px-6 py-3 text-sm font-semibold text-zinc-950"
+                        >
+                            Back to movies
+                        </button>
+                    </section>
+                </main>
+            </div>
         );
     }
 
@@ -132,7 +444,20 @@ function MovieDetailPage({
     const runtime = formatRuntime(movie.runtime);
 
     return (
-        <main className="min-h-screen bg-[#05070b] text-white">
+        <div className="min-h-screen bg-[#05070b] text-white">
+            <SiteHeader
+                userState={userState}
+                username={username}
+                onHome={onBack}
+                onSignIn={onSignIn}
+                onProfile={onProfile}
+                onLogout={onLogout}
+                primaryAction={{
+                    label: playback.isPlaying ? 'Pause' : 'Start Watching',
+                    onClick: playback.togglePlayback,
+                }}
+            />
+            <main>
             <section className="relative isolate overflow-hidden border-b border-white/10">
                 <img
                     src={poster}
@@ -232,9 +557,6 @@ function MovieDetailPage({
             <section className="mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)] lg:px-8 lg:py-14">
                 <div>
                     <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-300">
-                        <span className="rounded-full bg-red-600 px-3 py-1 font-semibold text-white">
-                            {movie.vote_average.toFixed(1)} average
-                        </span>
                         <span>{movie.release_year ?? 'Year unavailable'}</span>
                         <span>{runtime}</span>
                         <span>{movie.original_language.toUpperCase()}</span>
@@ -243,12 +565,37 @@ function MovieDetailPage({
                     <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
                         {movie.title}
                     </h1>
+
+                    <MovieRatingSummary movie={movie} />
+
                     <h2 className="mt-8 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">
                         Overview
                     </h2>
                     <p className="mt-3 max-w-4xl text-lg leading-8 text-zinc-300">
                         {movie.overview || 'No overview is available for this movie.'}
                     </p>
+
+                    <MovieEngagement
+                        movie={movie}
+                        userRating={movieRating.rating}
+                        isRatingLoading={movieRating.isLoading}
+                        onRate={movieRating.submitRating}
+                        onClearRating={movieRating.clearRating}
+                        selectedReaction={movieReaction.reaction}
+                        isReactionLoading={movieReaction.isSubmitting}
+                        onReact={movieReaction.submitReaction}
+                        onShare={onShare}
+                    />
+
+                    {(interactionError ||
+                        movieRating.error ||
+                        movieReaction.error) && (
+                        <p className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+                            {interactionError ||
+                                movieRating.error ||
+                                movieReaction.error}
+                        </p>
+                    )}
 
                     <h2 className="mt-8 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">
                         Genres
@@ -270,7 +617,7 @@ function MovieDetailPage({
                         )}
                     </div>
 
-                    <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="mt-8 grid gap-4 sm:grid-cols-3">
                         <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-5">
                             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
                                 Release year
@@ -287,68 +634,12 @@ function MovieDetailPage({
                         </div>
                         <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-5">
                             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                                Vote average
-                            </p>
-                            <p className="mt-2 text-2xl font-semibold">
-                                {movie.vote_average.toFixed(1)}
-                            </p>
-                        </div>
-                        <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-5">
-                            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                                Vote count
-                            </p>
-                            <p className="mt-2 text-2xl font-semibold">
-                                {movie.vote_count.toLocaleString()}
-                            </p>
-                        </div>
-                        <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-5">
-                            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-                                Popularity
-                            </p>
-                            <p className="mt-2 text-2xl font-semibold">
-                                {movie.popularity.toLocaleString(undefined, {
-                                    maximumFractionDigits: 1,
-                                })}
-                            </p>
-                        </div>
-                        <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-5">
-                            <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
                                 Original language
                             </p>
                             <p className="mt-2 text-2xl font-semibold uppercase">
                                 {movie.original_language || 'N/A'}
                             </p>
                         </div>
-                    </div>
-
-                    {interactionError && (
-                        <p className="mt-8 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
-                            {interactionError}
-                        </p>
-                    )}
-
-                    <div className="mt-8 flex flex-wrap gap-3">
-                        <button
-                            type="button"
-                            onClick={() => onRate(movie.movie_id, 5)}
-                            className="rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold transition hover:border-red-500/50 hover:bg-red-500/10"
-                        >
-                            Rate 5 stars
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => onReact(movie.movie_id, 'like')}
-                            className="rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold transition hover:border-red-500/50 hover:bg-red-500/10"
-                        >
-                            Like
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => onShare(movie.movie_id)}
-                            className="rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold transition hover:border-red-500/50 hover:bg-red-500/10"
-                        >
-                            Share
-                        </button>
                     </div>
                 </div>
 
@@ -365,18 +656,11 @@ function MovieDetailPage({
                         />
                         <DetailList label="Actors" values={movie.actors} />
                         <DetailList label="Directors" values={movie.directors} />
-                        <div>
-                            <dt className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">
-                                Movie ID
-                            </dt>
-                            <dd className="mt-2 break-all font-mono text-sm text-zinc-300">
-                                {movie.movie_id}
-                            </dd>
-                        </div>
                     </dl>
                 </aside>
             </section>
-        </main>
+            </main>
+        </div>
     );
 }
 

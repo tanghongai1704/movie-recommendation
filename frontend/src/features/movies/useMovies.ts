@@ -15,6 +15,8 @@ const initialState: MoviesState = {
     error: null,
 };
 
+const CATALOG_FETCH_LIMIT = 100;
+
 export function useMovies() {
     const [state, setState] = useState<MoviesState>(initialState);
 
@@ -38,7 +40,7 @@ export function useMovies() {
     }, []);
 
     useEffect(() => {
-        void loadMovies();
+        void loadMovies({ limit: CATALOG_FETCH_LIMIT });
     }, [loadMovies]);
 
     return {

@@ -11,8 +11,11 @@ interactions, onboarding, profiles, and Netflix-style movie discovery.
 - call the backend only through the centralized API client and feature services
 - show loading and error states for API responses
 
-The initial public catalog uses the backend's bounded default of 24 Movies
-records instead of requesting the full DynamoDB table.
+The public catalog requests at most 100 Movies records. `MovieSection` renders
+the first 20 as a responsive grid (four columns on desktop, approximately five
+rows) and reveals the next 20 whenever the user selects `More film`. The whole
+movie card is the navigation target; cards do not expose separate Watch or Rate
+buttons.
 
 ## Movie detail
 
@@ -26,9 +29,9 @@ MovieDetailPage
   -> GET /api/v1/movie/{movie_id}
 ```
 
-The page displays every Movies field:
+The viewing page keeps the global header and presents these user-facing Movies
+fields:
 
-- `movie_id`
 - `title`
 - `release_year`
 - `genres`
@@ -36,13 +39,24 @@ The page displays every Movies field:
 - `poster_path`
 - `vote_average`
 - `vote_count`
-- `popularity`
 - `runtime`
 - `original_language`
 - `companies`
 - `countries`
 - `actors`
 - `directors`
+
+`movie_id` remains an internal routing and interaction identifier, and
+`popularity` remains available in the API contract; neither is rendered in the
+Movie Detail UI. Vote average, vote count, the five-star rating action, Like,
+Dislike, and Sharing use a streaming-player-style layout. The aggregate vote
+average and vote count sit directly below the movie title and outside the
+action panel. The TMDB-style ten-point `vote_average` is converted to a
+five-star display (`vote_average / 2`) while the API value remains unchanged.
+The action panel contains a separate interactive five-star control. It loads
+the authenticated user's latest rating through
+`GET /users/me/ratings/{movie_id}`; unrated movies show empty stars, and a new
+selection is shown only after the rating interaction is stored successfully.
 
 Missing scalar or collection values receive an explicit unavailable state. A
 missing poster uses a local SVG placeholder.
@@ -72,16 +86,26 @@ uses the poster as the player artwork and never requests a video file.
 - seek/progress state
 - automatic stop when the runtime is reached
 
-The player is intentionally visual-only. Starting playback records a `watch`
-interaction for an authenticated user. A guest is redirected to `/login`
-without starting playback.
+The player is intentionally visual-only. Playback records one `watch/record`
+interaction with value `0.6` when an authenticated user reaches 60%. A guest
+is redirected to `/login` without starting playback.
 
 ## Interaction pipeline
 
 `useMovieActions` supports click, watch, rating, reaction, and share. It maps
 each UI action to the canonical `interaction_type`, `interaction_action`, and
-optional `interaction_value` fields. `interactionService` adds the session,
+required `interaction_value` fields. `interactionService` adds the session,
 timestamp, and a request-scoped `Idempotency-Key`.
+
+`useMovieRating` loads and owns the current user's selected star value. It
+keeps aggregate movie votes separate from the personal rating interaction.
+`useMovieReaction` owns the current Like/Dislike selection. The selected button
+turns red only after persistence succeeds; selecting it again submits
+`reaction/clear/0` and removes the highlight. Rating exposes an explicit Clear
+action that submits `rating/clear/0`. The rating control exposes ten selectable
+half-star steps, so values such as `3.5` fill exactly three and a half stars.
+Both hooks reload the latest effective state from UserInteractions so the UI
+remains consistent after refresh.
 
 Network retries reuse the same request body and idempotency key. The backend
 therefore returns the same `event_id` and DynamoDB `interaction_key` instead of

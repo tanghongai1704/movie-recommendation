@@ -90,13 +90,16 @@ no User record.
 | `movie_id` | `str` | Movies reference |
 | `interaction_type` | `click \| watch \| rating \| reaction \| share` | Behavior category |
 | `interaction_action` | `InteractionAction` | Concrete action within the category |
-| `interaction_value` | `float \| None` | Optional numeric behavior value |
+| `interaction_value` | `float \| None` | Canonical numeric signal; null remains readable only for legacy events |
 | `timestamp` | `datetime` | UTC event time |
 | `session_id` | `str` | Client session grouping key |
 
-`interaction_action` is validated against its type: click uses `open_detail`;
-watch uses `start`, `progress`, or `complete`; rating uses `submit`; reaction
-uses `like` or `dislike`; and share uses `native_share` or `copy_link`.
+Canonical writes use `record`, `set`, and `clear`. Click and share use
+`record/1`; watch uses `record` with a `0..1` progress ratio; rating uses
+`set/0.5..5` in half-star increments or `clear/0`; and reaction uses `set/1`,
+`set/-1`, or `clear/0`.
+Legacy action values remain deserializable so existing DynamoDB events can
+still be read, but new API requests cannot write them.
 
 ### RecommendationCache
 

@@ -84,9 +84,19 @@ InteractionCreate
   -> UserInteractionsRepository
 ```
 
-InteractionService records behavior only and does not invoke recommendation
-logic. The repository uses a conditional create so an identical retry resolves
-to the existing item instead of creating a duplicate.
+InteractionService owns interaction behavior only and does not invoke
+recommendation logic. The repository uses a conditional create so an identical
+retry resolves to the existing item instead of creating a duplicate.
+Canonical writes use only `record`, `set`, and `clear`. Click and share store
+`record/1`; the 60% watch milestone stores `record/0.6`; reactions store
+`set/1`, `set/-1`, or `clear/0`; and ratings store `set/<rating>` or `clear/0`.
+Set ratings range from `0.5` to `5.0` in `0.5` increments.
+
+`GET /api/v1/users/me/ratings/{movie_id}` reads the authenticated user's
+UserInteractions partition and returns the latest rating event for that movie,
+or `null` when no rating exists. This read path does not change the DynamoDB
+schema or write a derived rating record. The equivalent reaction projection is
+available at `GET /api/v1/users/me/reactions/{movie_id}`.
 
 ## Field naming convention
 
