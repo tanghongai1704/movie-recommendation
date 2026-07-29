@@ -155,7 +155,7 @@ class DomainModelTests(unittest.TestCase):
                     reason_code="similar_genres",
                 )
             ],
-            model_version="mock-v1",
+            model_version="test-model-v1",
             generated_at=datetime.now(timezone.utc),
             expire_at=1_800_000_000,
         )

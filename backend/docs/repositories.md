@@ -31,8 +31,9 @@ app/repositories/
 `dynamodb_base.py` contains serialization, connection, pagination, conditional
 write, get, query, scan, and delete mechanics shared across repositories.
 
-`movie_repository.py` contains the read abstraction and in-memory implementation
-used by the current mock provider. It is not a DynamoDB table implementation.
+`movie_repository.py` contains only the read abstraction used for service and
+provider dependency inversion. `MoviesRepository` is its production
+implementation.
 
 ## Repository contracts
 
@@ -42,6 +43,7 @@ used by the current mock provider. It is not a DynamoDB table implementation.
 |---|---|
 | `create(movie)` | Conditionally create a Movies item |
 | `get(movie_id)` | Read one Movies item |
+| `get_many(movie_ids)` | BatchGet up to 100 keys per request, retry unprocessed keys, and restore caller order |
 | `list_all()` | Scan all Movies pages |
 | `update(movie)` | Conditionally replace an existing Movies item |
 | `delete(movie_id)` | Delete one Movies item |
@@ -89,6 +91,9 @@ used by the current mock provider. It is not a DynamoDB table implementation.
 `upsert` is a persistence operation. Cache validity, ranking, model selection,
 metadata enrichment, and scenario selection remain service responsibilities.
 
+Cache reads reject historical entries attributed to the removed local provider.
+This prevents obsolete rankings from being served without mutating DynamoDB.
+
 ## Configuration
 
 Repository constructors require both `table_name` and `region_name`. They do not
@@ -102,11 +107,12 @@ The application composition layer supplies values from:
 - `AWS_DYNAMODB_USERS_TABLE`
 - `AWS_DYNAMODB_INTERACTIONS_TABLE`
 - `AWS_DYNAMODB_RECOMMENDATION_CACHE_TABLE`
+- `AWS_DYNAMODB_POPULAR_LIST_ID`
 
 Startup fails with a clear configuration error when a required variable is
 missing or empty. The composition root creates one configured boto3 DynamoDB
 resource with environment-driven region, endpoint, timeout and retry settings,
-then injects table handles into each repository. Legacy table-variable names
+then injects table handles and the service-level BatchGet reader. Legacy table-variable names
 remain temporary aliases during deployment migration.
 
 ## Domain mapping

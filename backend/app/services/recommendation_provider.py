@@ -4,13 +4,12 @@ from typing import Optional
 from app.schemas.movie import MovieResponse
 
 
-class RecommendationProvider(ABC):
-    """Abstraction for retrieving recommended movies.
+class RecommendationProviderUnavailableError(Exception):
+    """Raised when personalized inference cannot currently be performed."""
 
-    This interface is intentionally small so a future SageMaker-based
-    implementation can replace the current mock provider without changing the
-    router or the frontend-facing response contract.
-    """
+
+class RecommendationProvider(ABC):
+    """Stable provider boundary for personalized movie inference."""
 
     @abstractmethod
     def get_recommendations(

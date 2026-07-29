@@ -209,30 +209,11 @@ RecommendationCache.items
   -> RecommendationResponse
 ```
 
-## Detailed DynamoDB table documentation placeholders
+## DynamoDB operations
 
-The following sections are intentionally reserved for a later infrastructure
-milestone.
+The deployed keys, access patterns, BatchGet behavior, compatibility reads,
+null handling, IAM requirements and verification commands are documented in
+[DynamoDB](../../docs/aws/dynamodb.md).
 
-### Movies table details
-
-TODO: Document capacity, indexes, import ownership, backup, and operational
-access patterns.
-
-### PopularMovies table details
-
-TODO: Document list generation jobs, refresh cadence, and consistency rules.
-
-### Users table details
-
-TODO: Document identity indexes, uniqueness enforcement, encryption, and access
-patterns.
-
-### UserInteractions table details
-
-TODO: Document both GSIs, retention, export, and ML consumption patterns.
-
-### RecommendationCache table details
-
-TODO: Document TTL configuration, scenarios, invalidation, and model-version
-rollout rules.
+The deployed tables currently have no GSIs. Services use Query only where the
+existing key schema supports it and do not assume proposed indexes exist.

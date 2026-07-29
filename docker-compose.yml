@@ -2,6 +2,7 @@ name: ${COMPOSE_PROJECT_NAME:-movie-recommendation}
 
 services:
   frontend:
+    restart: unless-stopped
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -25,6 +26,7 @@ services:
       - movie-network
 
   backend:
+    restart: unless-stopped
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -42,7 +44,7 @@ services:
       API_HEALTH_PATH: ${API_HEALTH_PATH:-/health}
       BACKEND_HOST: ${BACKEND_HOST:-0.0.0.0}
       BACKEND_PORT: ${BACKEND_CONTAINER_PORT:-8000}
-      BACKEND_RELOAD: ${BACKEND_RELOAD:-true}
+      BACKEND_RELOAD: ${BACKEND_RELOAD:-false}
       PYTHONUNBUFFERED: "1"
     networks:
       - movie-network

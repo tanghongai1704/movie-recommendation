@@ -113,6 +113,40 @@ class FakeDynamoDBTable:
         }
 
 
+class FakeBatchReader:
+    def __init__(self, table_name: str, table: FakeDynamoDBTable) -> None:
+        self.table_name = table_name
+        self.table = table
+        self.calls = 0
+
+    def batch_get_item(
+        self,
+        *,
+        RequestItems: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
+        self.calls += 1
+        keys = RequestItems[self.table_name]["Keys"]
+        items = [
+            item
+            for key in keys
+            if (
+                item := next(
+                    (
+                        candidate
+                        for candidate in self.table.items
+                        if self.table._matches(candidate, key)
+                    ),
+                    None,
+                )
+            )
+            is not None
+        ]
+        return {
+            "Responses": {self.table_name: list(reversed(items))},
+            "UnprocessedKeys": {},
+        }
+
+
 class DynamoDBRepositoryTests(unittest.TestCase):
     def setUp(self) -> None:
         self.timestamp = datetime(2026, 7, 28, tzinfo=timezone.utc)
@@ -172,6 +206,25 @@ class DynamoDBRepositoryTests(unittest.TestCase):
 
         self.assertEqual(repository.list_all(limit=1), [first])
 
+    def test_movies_repository_batch_get_preserves_requested_order(self) -> None:
+        table = FakeDynamoDBTable()
+        batch_reader = FakeBatchReader("movies-test", table)
+        repository = MoviesRepository(
+            table_name="movies-test",
+            region_name="test-region",
+            table=table,
+            batch_reader=batch_reader,
+        )
+        first = self.make_movie(movie_id="movie-1")
+        second = self.make_movie(movie_id="movie-2")
+        repository.create(first)
+        repository.create(second)
+
+        movies = repository.get_many(["movie-2", "movie-1", "missing"])
+
+        self.assertEqual(movies, [second, first])
+        self.assertEqual(batch_reader.calls, 1)
+
     def test_popular_movies_repository_crud(self) -> None:
         repository = PopularMoviesRepository(
             table_name="popular-test",
@@ -192,6 +245,29 @@ class DynamoDBRepositoryTests(unittest.TestCase):
         self.assertEqual(repository.list_all(), [popular])
         self.assertEqual(repository.update(popular), popular)
         self.assertTrue(repository.delete("global"))
+
+    def test_popular_movies_normalizes_deployed_numeric_movie_ids(self) -> None:
+        table = FakeDynamoDBTable()
+        table.items.append(
+            {
+                "list_id": "top_rated_all",
+                "ranking_type": "ALL",
+                "genre": "ALL",
+                "movie_ids": [Decimal("278"), Decimal("238")],
+                "scores": [Decimal("9.0"), Decimal("8.9")],
+                "generated_at": self.timestamp.isoformat(),
+            }
+        )
+        repository = PopularMoviesRepository(
+            table_name="popular-test",
+            region_name="test-region",
+            table=table,
+        )
+
+        ranking = repository.get("top_rated_all")
+
+        self.assertIsNotNone(ranking)
+        self.assertEqual(ranking.movie_ids, ["278", "238"])
 
     def test_users_repository_crud(self) -> None:
         repository = UsersRepository(
@@ -364,7 +440,7 @@ class DynamoDBRepositoryTests(unittest.TestCase):
                     reason_code="genre_match",
                 )
             ],
-            model_version="mock-v1",
+            model_version="cache-v1",
             generated_at=self.timestamp,
             expire_at=1_800_000_000,
         )
@@ -374,6 +450,27 @@ class DynamoDBRepositoryTests(unittest.TestCase):
         self.assertEqual(repository.update(cache_entry), cache_entry)
         self.assertEqual(repository.upsert(cache_entry), cache_entry)
         self.assertTrue(repository.delete("user-1", "home"))
+
+    def test_recommendation_cache_ignores_legacy_mock_record(self) -> None:
+        table = FakeDynamoDBTable()
+        table.items.append(
+            {
+                "user_id": "user-1",
+                "scenario": "default",
+                "provider": "MockRecommendationProvider",
+                "movie_ids": [Decimal("1")],
+                "movies": [{"id": Decimal("1"), "score": Decimal("8.9")}],
+                "cached_at": self.timestamp.isoformat(),
+                "expires_at": Decimal("1800000000"),
+            }
+        )
+        repository = RecommendationCacheRepository(
+            table_name="cache-test",
+            region_name="test-region",
+            table=table,
+        )
+
+        self.assertIsNone(repository.get("user-1", "default"))
 
     def test_table_configuration_is_required(self) -> None:
         with self.assertRaises(ValueError):

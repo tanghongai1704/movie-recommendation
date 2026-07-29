@@ -212,13 +212,54 @@ def validate_s3_bucket_name(value: str) -> str:
     return value
 
 
-def validate_s3_prefix(value: str | None, *, name: str) -> str | None:
+def validate_s3_prefix(
+    value: str | None,
+    *,
+    name: str,
+    required: bool = False,
+) -> str | None:
     if value is None or not value.strip():
+        if required:
+            raise ConfigurationError(
+                f"Required environment variable is not set: {name}"
+            )
         return None
     normalized = value.strip().lstrip("/")
     if normalized in {".", ".."} or "/../" in f"/{normalized}/":
         raise ConfigurationError(f"{name} must not contain parent path segments")
     return normalized.rstrip("/") + "/"
+
+
+def validate_sagemaker_resource_name(
+    value: str | None,
+    *,
+    name: str,
+    required: bool = False,
+) -> str | None:
+    if value is None or not value.strip():
+        if required:
+            raise ConfigurationError(
+                f"Required environment variable is not set: {name}"
+            )
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", value):
+        raise ConfigurationError(
+            f"{name} must be a valid SageMaker resource name"
+        )
+    return value
+
+
+def validate_iam_role_arn(value: str | None) -> str | None:
+    if value is None or not value.strip():
+        return None
+    if not re.fullmatch(
+        r"arn:(?:aws|aws-us-gov|aws-cn):iam::\d{12}:role/.+",
+        value,
+    ):
+        raise ConfigurationError(
+            "AWS_SAGEMAKER_EXECUTION_ROLE must be a valid IAM role ARN"
+        )
+    return value
 
 
 def validate_aws_credentials(*, enabled: bool) -> None:

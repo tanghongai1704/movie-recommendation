@@ -1,18 +1,7 @@
 # Backend
 
-The backend is a FastAPI service whose canonical domain model is aligned with
-the five DynamoDB tables used by the movie recommendation system.
-
-## Current responsibilities
-
-- serve the existing API routes under `/api/v1`
-- register and authenticate users with password hashing and JWT access tokens
-- expose protected profile, onboarding, interaction, and recommendation flows
-- expose canonical movie and recommendation response fields
-- serve valid recommendation-cache entries before invoking the provider
-- enrich cached movie references from the Movies repository
-- record click, watch, rating, reaction, and share behavior in canonical
-  idempotent DynamoDB records
+FastAPI service using the five deployed DynamoDB tables and real AWS SDK
+clients.
 
 ## Architecture
 
@@ -21,144 +10,106 @@ Router -> Service -> Repository
                   -> RecommendationProvider
 ```
 
-- `app/models/` defines strict DynamoDB persistence models.
-- `app/schemas/` defines request and response DTOs.
-- `app/repositories/` contains persistence operations only.
-- `app/services/` contains application behavior and mapping.
-- `app/api/` contains HTTP transport concerns.
+- `app/models/`: DynamoDB persistence models
+- `app/schemas/`: request/response and SageMaker DTOs
+- `app/repositories/`: DynamoDB operations only
+- `app/services/`: business behavior and enrichment
+- `app/aws/`: AWS client validation and S3 tooling
+- `app/api/`: HTTP transport
 
-No API URL was changed during the domain-model migration.
+No router calls DynamoDB, S3 or SageMaker directly.
 
-## Domain model
+## Data flows
 
-The backend recognizes exactly five persisted aggregates:
-
-1. `Movie` maps to Movies.
-2. `PopularMovie` maps to PopularMovies.
-3. `User` maps to Users.
-4. `UserInteraction` maps to UserInteractions.
-5. `RecommendationCache` maps to RecommendationCache.
-
-Movie and user identifiers are strings throughout the backend. Cross-table
-references use `movie_id` and `user_id`; generic `id` fields are not used.
-
-See [Domain Model and Entity Mapping](docs/domain-model.md) for the complete
-field inventory, data flow, field mapping, and naming rules.
-
-See [DynamoDB Repository Layer](docs/repositories.md) for the one-repository-per-
-table layout, CRUD contracts, configuration, and boundary rules.
-
-See [Authentication Flow](../docs/architecture/authentication-flow.md) for user
-states, JWT middleware, protected routes, and frontend redirects.
-
-See [Interaction Pipeline](../docs/architecture/interaction-pipeline.md) for
-the event contract, retry guarantees, and sequence diagrams.
-
-## Data flow
-
-### Movie metadata
+Guest movies:
 
 ```text
-Movies table -> MoviesRepository -> MovieService -> MovieResponse
+PopularMoviesRepository.GetItem
+  -> MoviesRepository.BatchGetItem
+  -> MovieResponse[]
 ```
 
-### Recommendations
+Personalized recommendations:
 
 ```text
-RecommendationCacheRepository
-  -> cache hit: movie IDs/scores/reasons -> MoviesRepository enrichment
-  -> cache miss: RecommendationProvider -> normalized cache entry
-  -> RecommendationResponse
+RecommendationCacheRepository.GetItem
+  -> valid cache: MoviesRepository.BatchGetItem
+  -> miss: SageMakerRecommendationProvider
 ```
 
-RecommendationCache stores references and ranking data only. Movie metadata
-remains owned by Movies.
+The provider does not create local recommendations. Until its endpoint
+invocation is implemented and enabled, cache misses return HTTP 503.
 
-### Interactions
+Interactions:
 
 ```text
 InteractionCreate
-  -> API generates deterministic event_id
+  -> deterministic event_id
   -> InteractionService
-  -> UserInteraction
   -> UserInteractionsRepository
+  -> DynamoDB
 ```
 
-InteractionService owns interaction behavior only and does not invoke
-recommendation logic. The repository uses a conditional create so an identical
-retry resolves to the existing item instead of creating a duplicate.
-Canonical writes use only `record`, `set`, and `clear`. Click and share store
-`record/1`; the 60% watch milestone stores `record/0.6`; reactions store
-`set/1`, `set/-1`, or `clear/0`; and ratings store `set/<rating>` or `clear/0`.
-Set ratings range from `0.5` to `5.0` in `0.5` increments.
+## DynamoDB compatibility
 
-`GET /api/v1/users/me/ratings/{movie_id}` reads the authenticated user's
-UserInteractions partition and returns the latest rating event for that movie,
-or `null` when no rating exists. This read path does not change the DynamoDB
-schema or write a derived rating record. The equivalent reaction projection is
-available at `GET /api/v1/users/me/reactions/{movie_id}`.
+Canonical models map to Movies, PopularMovies, Users, UserInteractions and
+RecommendationCache. Deployed compatibility is read-only:
 
-Historical UserInteractions records are mapped through a read-only compatibility
-model. It accepts the deployed legacy field shapes, infers missing actions, and
-normalizes numeric movie IDs without writing the normalized representation back
-to DynamoDB. Canonical writes remain strict and unchanged.
+- numeric PopularMovies references are converted to string IDs in memory
+- historical interaction fields/actions are normalized in memory
+- cache records attributed to the retired local provider are not served
 
-## Field naming convention
+No compatibility read rewrites DynamoDB.
 
-- Use `snake_case` in Python, JSON, and DynamoDB.
-- Use explicit identifiers: `movie_id`, `user_id`, and `list_id`.
-- Use `timestamp`, `generated_at`, `created_at`, and `last_active_at` for UTC
-  date-time values.
-- Use `expire_at` for the integer Unix timestamp consumed by DynamoDB TTL.
-- Use plural names only for collections: `genres`, `movie_ids`, `items`.
-- Persistence models reject undeclared fields.
-- API-only fields must be documented and must not silently become DynamoDB
-  attributes.
+See [Domain Model](docs/domain-model.md) and
+[Repository Layer](docs/repositories.md).
 
-## Migration
+## Authentication
 
-See [Phase 1 Migration Summary](docs/migration-summary.md) for renamed fields,
-compatibility behavior, data-migration requirements, and deferred work.
+Registration and profile persistence use UsersRepository. Passwords use
+PBKDF2-HMAC-SHA256 with per-user random salts and the configured iteration
+count. JWT configuration comes exclusively from environment variables.
 
-## Main entrypoint
+Guest, first-login and returning-user behavior is documented in
+[Authentication Flow](../docs/architecture/authentication-flow.md).
 
-- `app/main.py` - FastAPI application
-- `app/api/v1/routes/` - existing API routes
-- `app/services/` - business logic
-- `app/repositories/` - DynamoDB and in-memory data access
-- `app/models/` - canonical persistence models
-- `app/schemas/` - request and response DTOs
-- `app/core/config.py` - typed application configuration sections
-- `app/core/config_validation.py` - reusable environment/startup validators
+## Configuration and startup
 
-## Local development
+The composition root creates reusable DynamoDB, S3 and optional SageMaker
+clients. With `AWS_VALIDATE_RESOURCES=True`, startup verifies:
+
+- caller identity
+- all five tables are `ACTIVE`
+- exact partition/sort keys
+- S3 bucket and prefix-list access
+- enabled SageMaker endpoint is `InService`
+
+See [Environment Variables](../docs/aws/environment.md).
+
+## S3 operations
+
+Backend request handlers do not load datasets. Operational transfers use:
+
+```bash
+python scripts/s3_dataset.py list raw
+python scripts/s3_dataset.py upload raw /path/to/file
+python scripts/s3_dataset.py download serving object.json /tmp/object.json
+```
+
+## Development and tests
 
 ```bash
 cd backend
 python -m pip install -r requirements.txt
-PYTHONPATH=. python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-## Environment variables
+Native processes must receive the variables from `.env.example`. Docker is the
+recommended path because it propagates the shared project environment.
 
-The complete source of truth is
-[AWS and application configuration](../docs/aws-configuration.md). Required
-backend values include `JWT_SECRET_KEY`, `AWS_REGION`, the five canonical
-`AWS_DYNAMODB_*_TABLE` variables and `AWS_S3_BUCKET`.
+## API stability
 
-Startup validates credentials, URLs, AWS region, table names, S3 bucket, JWT,
-logging, timeouts, retry settings and cache configuration. Legacy
-`JWT_SECRET`/`AWS_DYNAMODB_TABLE_*` names remain temporary read aliases so
-existing deployments can migrate without changing API behavior.
-
-The composition root creates one configured DynamoDB resource and injects its
-table handles into repositories. Repository CRUD operations do not contain
-fallback resource names.
-
-`ALLOW_LEGACY_DEV_LOGIN` does not rewrite Users records. When enabled, it
-accepts only the exact `<user_id>#username`, `<user_id>@email.com`, and
-`<user_id>#pass` combination on a schema-version-2 seed record. New
-registrations always store PBKDF2 in the existing
-`user_settings.password_hash` field. Seed identities are resolved by their
-embedded `user_id` with `GetItem`, avoiding a full Users table scan without
-adding an index or changing the table schema.
+This AWS migration does not change route URLs, request schemas, success
+response schemas, authentication states or the DynamoDB key schema. See
+[API Contract](../docs/api/api-contract.md).

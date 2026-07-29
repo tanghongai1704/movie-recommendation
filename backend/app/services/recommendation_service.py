@@ -104,14 +104,17 @@ class RecommendationService:
         if cached is None or cached.expire_at <= self._clock():
             return None
 
+        movie_ids = [item.movie_id for item in cached.items]
+        resolved = self._movie_repository.get_many(movie_ids)
+        movies_by_id = {movie.movie_id: movie for movie in resolved}
+        if any(movie_id not in movies_by_id for movie_id in movie_ids):
+            return None
+
         movies: list[CachedRecommendationMovie] = []
         for item in cached.items:
-            movie = self._movie_repository.get(item.movie_id)
-            if movie is None:
-                return None
             movies.append(
                 CachedRecommendationMovie(
-                    **movie.model_dump(),
+                    **movies_by_id[item.movie_id].model_dump(),
                     score=item.score,
                     reason_code=item.reason_code,
                 )

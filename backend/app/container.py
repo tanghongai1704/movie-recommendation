@@ -1,11 +1,11 @@
 """Application composition root for security, services, and repositories."""
 
-import boto3
-from botocore.config import Config as BotocoreConfig
-
+from app.aws.infrastructure import create_aws_clients
+from app.aws.s3_storage import S3DatasetStorage
 from app.core.config import settings
 from app.core.security import JWTService, PasswordHasher
 from app.repositories.movies_repository import MoviesRepository
+from app.repositories.popular_movies_repository import PopularMoviesRepository
 from app.repositories.recommendation_cache_repository import (
     RecommendationCacheRepository,
 )
@@ -15,24 +15,15 @@ from app.repositories.user_interactions_repository import (
 from app.repositories.users_repository import UsersRepository
 from app.services.auth_service import AuthService
 from app.services.interaction_service import InteractionService
-from app.services.mock_recommendation_provider import MockRecommendationProvider
 from app.services.movie_service import MovieService
+from app.services.popular_movie_service import PopularMovieService
 from app.services.recommendation_service import RecommendationService
+from app.services.sagemaker_recommendation_provider import (
+    SageMakerRecommendationProvider,
+)
 
-aws_client_config = BotocoreConfig(
-    connect_timeout=settings.aws.connect_timeout_seconds,
-    read_timeout=settings.aws.read_timeout_seconds,
-    retries={
-        "max_attempts": settings.aws.max_attempts,
-        "mode": settings.aws.retry_mode,
-    },
-)
-dynamodb_resource = boto3.resource(
-    "dynamodb",
-    region_name=settings.aws.region,
-    endpoint_url=settings.aws.endpoint_url,
-    config=aws_client_config,
-)
+aws_clients = create_aws_clients(settings)
+dynamodb_resource = aws_clients.dynamodb_resource
 
 users_repository = UsersRepository(
     table_name=settings.dynamodb.users_table,
@@ -43,6 +34,13 @@ movies_repository = MoviesRepository(
     table_name=settings.dynamodb.movies_table,
     region_name=settings.aws.region,
     table=dynamodb_resource.Table(settings.dynamodb.movies_table),
+    batch_reader=dynamodb_resource,
+    batch_max_attempts=settings.aws.max_attempts,
+)
+popular_movies_repository = PopularMoviesRepository(
+    table_name=settings.dynamodb.popular_table,
+    region_name=settings.aws.region,
+    table=dynamodb_resource.Table(settings.dynamodb.popular_table),
 )
 recommendation_cache_repository = RecommendationCacheRepository(
     table_name=settings.dynamodb.recommendation_cache_table,
@@ -78,8 +76,21 @@ auth_service = AuthService(
 interaction_service = InteractionService(
     repository=user_interactions_repository,
 )
-recommendation_provider = MockRecommendationProvider(
-    repository=movies_repository,
+popular_movie_service = PopularMovieService(
+    popular_movies=popular_movies_repository,
+    movies=movies_repository,
+    list_id=settings.dynamodb.popular_list_id,
+)
+recommendation_provider = SageMakerRecommendationProvider(
+    movie_repository=movies_repository,
+    runtime_client=aws_clients.sagemaker_runtime_client,
+    control_client=aws_clients.sagemaker_client,
+    endpoint_name=settings.sagemaker.endpoint_name,
+    scenario=settings.cache.scenario,
+    recommendation_limit=settings.sagemaker.recommendation_limit,
+    content_type=settings.sagemaker.content_type,
+    accept=settings.sagemaker.accept,
+    enabled=settings.sagemaker.enabled,
 )
 recommendation_service = RecommendationService(
     provider=recommendation_provider,
@@ -92,4 +103,9 @@ recommendation_service = RecommendationService(
 movie_service = MovieService(
     repository=movies_repository,
     recommendation_service=recommendation_service,
+    popular_movie_service=popular_movie_service,
+)
+s3_dataset_storage = S3DatasetStorage(
+    client=aws_clients.s3_client,
+    bucket=settings.s3.bucket,
 )

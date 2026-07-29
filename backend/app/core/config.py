@@ -15,11 +15,13 @@ from app.core.config_validation import (
     validate_aws_region,
     validate_cors_origins,
     validate_http_url,
+    validate_iam_role_arn,
     validate_jwt_algorithm,
     validate_jwt_secret,
     validate_log_level,
     validate_s3_bucket_name,
     validate_s3_prefix,
+    validate_sagemaker_resource_name,
 )
 
 
@@ -63,6 +65,7 @@ class AWSSettings:
     max_attempts: int
     retry_mode: str
     validate_credentials: bool
+    validate_resources: bool
 
 
 @dataclass(frozen=True)
@@ -72,26 +75,34 @@ class DynamoDBSettings:
     users_table: str
     interactions_table: str
     recommendation_cache_table: str
+    popular_list_id: str
 
 
 @dataclass(frozen=True)
 class S3Settings:
     bucket: str
-    dataset_prefix: str | None
-    processed_prefix: str | None
-    serving_prefix: str | None
-    training_prefix: str | None
-    model_prefix: str | None
-    output_prefix: str | None
+    dataset_prefix: str
+    raw_prefix: str
+    processed_prefix: str
+    features_prefix: str
+    serving_prefix: str
+    training_prefix: str
+    model_prefix: str
+    output_prefix: str
+    interaction_export_prefix: str
 
 
 @dataclass(frozen=True)
 class SageMakerSettings:
+    enabled: bool
     training_job_name_prefix: str | None
     endpoint_name: str | None
     model_name: str | None
     execution_role: str | None
     instance_type: str | None
+    content_type: str
+    accept: str
+    recommendation_limit: int
 
 
 @dataclass(frozen=True)
@@ -141,9 +152,22 @@ class Settings:
             default=True,
         )
         validate_aws_credentials(enabled=validate_credentials)
+        validate_resources = boolean_value(
+            "AWS_VALIDATE_RESOURCES",
+            default=True,
+        )
 
         s3_bucket = validate_s3_bucket_name(
             str(environment_value("AWS_S3_BUCKET", required=True))
+        )
+        sagemaker_enabled = boolean_value(
+            "AWS_SAGEMAKER_ENABLED",
+            default=False,
+        )
+        sagemaker_endpoint_name = validate_sagemaker_resource_name(
+            environment_value("AWS_SAGEMAKER_ENDPOINT_NAME"),
+            name="AWS_SAGEMAKER_ENDPOINT_NAME",
+            required=sagemaker_enabled,
         )
         retry_mode = str(
             environment_value("AWS_RETRY_MODE", default="standard")
@@ -284,6 +308,7 @@ class Settings:
                 ),
                 retry_mode=retry_mode,
                 validate_credentials=validate_credentials,
+                validate_resources=validate_resources,
             ),
             dynamodb=DynamoDBSettings(
                 movies_table=str(
@@ -323,47 +348,121 @@ class Settings:
                         required=True,
                     )
                 ),
+                popular_list_id=str(
+                    environment_value(
+                        "AWS_DYNAMODB_POPULAR_LIST_ID",
+                        required=True,
+                    )
+                ),
             ),
             s3=S3Settings(
                 bucket=s3_bucket,
-                dataset_prefix=validate_s3_prefix(
-                    environment_value("AWS_S3_DATASET_PREFIX"),
+                dataset_prefix=str(validate_s3_prefix(
+                    environment_value(
+                        "AWS_S3_DATASET_PREFIX",
+                        required=True,
+                    ),
                     name="AWS_S3_DATASET_PREFIX",
-                ),
-                processed_prefix=validate_s3_prefix(
-                    environment_value("AWS_S3_PROCESSED_PREFIX"),
+                    required=True,
+                )),
+                raw_prefix=str(validate_s3_prefix(
+                    environment_value("AWS_S3_RAW_PREFIX", required=True),
+                    name="AWS_S3_RAW_PREFIX",
+                    required=True,
+                )),
+                processed_prefix=str(validate_s3_prefix(
+                    environment_value(
+                        "AWS_S3_PROCESSED_PREFIX",
+                        required=True,
+                    ),
                     name="AWS_S3_PROCESSED_PREFIX",
-                ),
-                serving_prefix=validate_s3_prefix(
-                    environment_value("AWS_S3_SERVING_PREFIX"),
+                    required=True,
+                )),
+                features_prefix=str(validate_s3_prefix(
+                    environment_value(
+                        "AWS_S3_FEATURES_PREFIX",
+                        required=True,
+                    ),
+                    name="AWS_S3_FEATURES_PREFIX",
+                    required=True,
+                )),
+                serving_prefix=str(validate_s3_prefix(
+                    environment_value(
+                        "AWS_S3_SERVING_PREFIX",
+                        required=True,
+                    ),
                     name="AWS_S3_SERVING_PREFIX",
-                ),
-                training_prefix=validate_s3_prefix(
-                    environment_value("AWS_S3_TRAINING_PREFIX"),
+                    required=True,
+                )),
+                training_prefix=str(validate_s3_prefix(
+                    environment_value(
+                        "AWS_S3_TRAINING_PREFIX",
+                        required=True,
+                    ),
                     name="AWS_S3_TRAINING_PREFIX",
-                ),
-                model_prefix=validate_s3_prefix(
-                    environment_value("AWS_S3_MODEL_PREFIX"),
+                    required=True,
+                )),
+                model_prefix=str(validate_s3_prefix(
+                    environment_value(
+                        "AWS_S3_MODEL_PREFIX",
+                        required=True,
+                    ),
                     name="AWS_S3_MODEL_PREFIX",
-                ),
-                output_prefix=validate_s3_prefix(
-                    environment_value("AWS_S3_OUTPUT_PREFIX"),
+                    required=True,
+                )),
+                output_prefix=str(validate_s3_prefix(
+                    environment_value(
+                        "AWS_S3_OUTPUT_PREFIX",
+                        required=True,
+                    ),
                     name="AWS_S3_OUTPUT_PREFIX",
-                ),
+                    required=True,
+                )),
+                interaction_export_prefix=str(validate_s3_prefix(
+                    environment_value(
+                        "AWS_S3_INTERACTION_EXPORT_PREFIX",
+                        required=True,
+                    ),
+                    name="AWS_S3_INTERACTION_EXPORT_PREFIX",
+                    required=True,
+                )),
             ),
             sagemaker=SageMakerSettings(
-                training_job_name_prefix=environment_value(
-                    "AWS_SAGEMAKER_TRAINING_JOB_NAME_PREFIX"
+                enabled=sagemaker_enabled,
+                training_job_name_prefix=validate_sagemaker_resource_name(
+                    environment_value(
+                        "AWS_SAGEMAKER_TRAINING_JOB_NAME_PREFIX"
+                    ),
+                    name="AWS_SAGEMAKER_TRAINING_JOB_NAME_PREFIX",
                 ),
-                endpoint_name=environment_value(
-                    "AWS_SAGEMAKER_ENDPOINT_NAME"
+                endpoint_name=sagemaker_endpoint_name,
+                model_name=validate_sagemaker_resource_name(
+                    environment_value("AWS_SAGEMAKER_MODEL_NAME"),
+                    name="AWS_SAGEMAKER_MODEL_NAME",
                 ),
-                model_name=environment_value("AWS_SAGEMAKER_MODEL_NAME"),
-                execution_role=environment_value(
-                    "AWS_SAGEMAKER_EXECUTION_ROLE"
+                execution_role=validate_iam_role_arn(
+                    environment_value("AWS_SAGEMAKER_EXECUTION_ROLE")
                 ),
                 instance_type=environment_value(
                     "AWS_SAGEMAKER_INSTANCE_TYPE"
+                ),
+                content_type=str(
+                    environment_value(
+                        "AWS_SAGEMAKER_CONTENT_TYPE",
+                        default="application/json",
+                    )
+                ),
+                accept=str(
+                    environment_value(
+                        "AWS_SAGEMAKER_ACCEPT",
+                        default="application/json",
+                    )
+                ),
+                recommendation_limit=integer_value(
+                    "AWS_SAGEMAKER_RECOMMENDATION_LIMIT",
+                    default=10,
+                    minimum=1,
+                    maximum=100,
                 ),
             ),
             logging=LoggingSettings(
@@ -400,7 +499,7 @@ class Settings:
                 model_version=str(
                     environment_value(
                         "RECOMMENDATION_MODEL_VERSION",
-                        default="mock-v1",
+                        default="sagemaker-untrained",
                     )
                 ),
             ),

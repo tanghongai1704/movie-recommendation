@@ -6,6 +6,10 @@ from app.models.user import User
 from app.repositories.dynamodb_base import DynamoDBRepositoryError
 from app.schemas.movie import MovieResponse
 from app.schemas.recommendation import RecommendationResponse
+from app.services.popular_movie_service import PopularMoviesNotFoundError
+from app.services.recommendation_provider import (
+    RecommendationProviderUnavailableError,
+)
 
 router = APIRouter()
 
@@ -18,7 +22,7 @@ def list_movies(
 
     try:
         return movie_service.get_all_movies(limit=limit)
-    except DynamoDBRepositoryError as exc:
+    except (DynamoDBRepositoryError, PopularMoviesNotFoundError) as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Unable to load movies",
@@ -49,6 +53,11 @@ def get_recommendations(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Unable to load recommendations",
+        ) from exc
+    except RecommendationProviderUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Personalized recommendations are not available",
         ) from exc
 
 

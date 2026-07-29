@@ -5,14 +5,15 @@ from app.models.recommendation_cache import (
     RecommendationCache,
     RecommendationCacheItem,
 )
-from app.repositories.movie_repository import InMemoryMovieRepository
+from app.models.movie import Movie
+from app.repositories.movie_repository import MovieRepository
 from app.schemas.movie import MovieResponse
-from app.services.mock_recommendation_provider import MockRecommendationProvider
+from app.schemas.recommendation import RecommendationItem
 from app.services.recommendation_provider import RecommendationProvider
 from app.services.recommendation_service import RecommendationService
 
 
-class InMemoryRecommendationCache:
+class TestRecommendationCache:
     def __init__(self) -> None:
         self.items: dict[tuple[str, str], RecommendationCache] = {}
         self.get_calls = 0
@@ -32,39 +33,91 @@ class InMemoryRecommendationCache:
         return item
 
 
+class StaticMovieRepository(MovieRepository):
+    def __init__(self) -> None:
+        self.movies = [
+            Movie(
+                movie_id=str(index),
+                title=title,
+                release_year=2025,
+                genres=["Drama"],
+                overview="Test movie",
+                poster_path="/poster.jpg",
+                vote_average=8.0,
+                vote_count=100,
+                popularity=10.0,
+                runtime=100,
+                original_language="en",
+                companies=["Studio"],
+                countries=["Vietnam"],
+                actors=["Actor"],
+                directors=["Director"],
+            )
+            for index, title in enumerate(
+                ("First movie", "Second movie", "Third movie"),
+                start=1,
+            )
+        ]
+
+    def list_all(self, limit: int | None = None) -> list[Movie]:
+        return self.movies if limit is None else self.movies[:limit]
+
+    def get(self, movie_id: str) -> Optional[Movie]:
+        return next(
+            (movie for movie in self.movies if movie.movie_id == movie_id),
+            None,
+        )
+
+    def get_many(self, movie_ids: list[str]) -> list[Movie]:
+        by_id = {movie.movie_id: movie for movie in self.movies}
+        return [by_id[movie_id] for movie_id in movie_ids if movie_id in by_id]
+
+
 class CountingRecommendationProvider(RecommendationProvider):
-    def __init__(self, repository: InMemoryMovieRepository) -> None:
+    def __init__(self, repository: StaticMovieRepository) -> None:
         self.calls = 0
-        self._provider = MockRecommendationProvider(repository=repository)
+        self._repository = repository
 
     def get_recommendations(
         self,
         user_id: Optional[str] = None,
     ) -> list[MovieResponse]:
+        del user_id
         self.calls += 1
-        return self._provider.get_recommendations(user_id=user_id)
+        return [
+            RecommendationItem(
+                **movie.model_dump(),
+                score=score,
+                reason_code="test_rank",
+            )
+            for movie, score in zip(
+                self._repository.list_all(),
+                (8.9, 8.4, 7.9),
+                strict=True,
+            )
+        ]
 
 
 class RecommendationServiceTests(unittest.TestCase):
     def make_dependencies(
         self,
     ) -> tuple[
-        InMemoryMovieRepository,
+        StaticMovieRepository,
         CountingRecommendationProvider,
-        InMemoryRecommendationCache,
+        TestRecommendationCache,
     ]:
-        repository = InMemoryMovieRepository()
+        repository = StaticMovieRepository()
         return (
             repository,
             CountingRecommendationProvider(repository),
-            InMemoryRecommendationCache(),
+            TestRecommendationCache(),
         )
 
     def make_service(
         self,
-        repository: InMemoryMovieRepository,
+        repository: StaticMovieRepository,
         provider: CountingRecommendationProvider,
-        cache: InMemoryRecommendationCache,
+        cache: TestRecommendationCache,
         now: float = 1_000.0,
     ) -> RecommendationService:
         return RecommendationService(
@@ -73,7 +126,7 @@ class RecommendationServiceTests(unittest.TestCase):
             movie_repository=repository,
             cache_ttl_seconds=60,
             scenario="default",
-            model_version="mock-v1",
+            model_version="test-model-v1",
             clock=lambda: now,
         )
 
@@ -91,7 +144,7 @@ class RecommendationServiceTests(unittest.TestCase):
             [item.movie_id for item in cached.items],
             ["1", "2", "3"],
         )
-        self.assertEqual(cached.model_version, "mock-v1")
+        self.assertEqual(cached.model_version, "test-model-v1")
         self.assertEqual(cached.expire_at, 1_060)
         self.assertEqual(response.user_id, "42")
         self.assertEqual(
@@ -109,7 +162,7 @@ class RecommendationServiceTests(unittest.TestCase):
         self.assertEqual(provider.calls, 1)
         self.assertEqual(cache.put_calls, 1)
         self.assertEqual(second, first)
-        self.assertEqual(second.recommendations[0].title, "Midnight Horizon")
+        self.assertEqual(second.recommendations[0].title, "First movie")
         self.assertEqual(second.recommendations[0].score, 8.9)
 
     def test_expired_cache_calls_provider_and_replaces_entry(self) -> None:

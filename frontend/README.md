@@ -138,5 +138,5 @@ npm run dev
 module. It fails fast on missing or invalid URLs. Only `VITE_*` variables are
 available to browser code; never place credentials or secrets in them.
 
-See [project configuration](../docs/aws-configuration.md) for the full template
+See [project configuration](../docs/aws/environment.md) for the full template
 and Docker mapping.

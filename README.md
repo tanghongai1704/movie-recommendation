@@ -1,128 +1,110 @@
 # Movie Recommendation System
 
-A Netflix-style movie application with a React/Vite frontend, FastAPI backend,
-five DynamoDB tables and an ML submodule prepared for future AWS training and
-inference work.
+A React/Vite and FastAPI movie application backed by real AWS services.
 
-## Current runtime
+## Runtime architecture
 
 ```text
 Browser
-  -> centralized frontend API client
-  -> FastAPI router
-  -> service
-  -> DynamoDB repository / recommendation provider
-  -> stable API response
+  -> centralized frontend services
+  -> FastAPI Router
+  -> Service
+  -> DynamoDB Repository / RecommendationProvider
+  -> AWS
 ```
 
-The current backend uses real DynamoDB repositories for Movies, Users,
-UserInteractions and RecommendationCache. Recommendation cache misses still use
-`MockRecommendationProvider`; this configuration phase does not integrate
-SageMaker or change recommendation behavior.
+The five configured DynamoDB tables are Movies, PopularMovies, Users,
+UserInteractions and RecommendationCache. S3 is the durable dataset/artifact
+store. The backend never serves bundled movie data or locally generated
+rankings.
+
+Recommendation behavior:
+
+- guest home: PopularMovies → BatchGet Movies
+- returning-user cache hit: RecommendationCache → BatchGet Movies
+- cache miss: SageMakerRecommendationProvider
+- before a compatible SageMaker endpoint exists: HTTP 503, never fabricated
+  recommendations
 
 ## Features
 
-- Guest movie browsing and movie detail
+- guest movie browsing and movie detail
 - JWT registration, login, profile and onboarding
-- First-login and returning-user routing
-- Click, watch, rating, reaction and share interaction storage
-- Per-user recommendation cache
-- Poster-based simulated playback
-- Frontend services/hooks with no direct component networking
+- first-login and returning-user routing
+- click, watch, rating, reaction and share interactions
+- DynamoDB recommendation cache
+- poster-based simulated playback
+- centralized frontend API services and hooks
 
 ## Repository structure
 
 ```text
 frontend/       React, Vite and TypeScript
-backend/        FastAPI services, repositories, models and tests
-docs/           API, architecture, configuration and setup documentation
-ml/             Independent recommendation-system Git submodule
+backend/        FastAPI, AWS composition, repositories, services and tests
+docs/           API, architecture and AWS deployment documentation
+ml/             Independent ML Git submodule with S3/SageMaker tooling
 docker-compose.yml
 .env.example
 ```
 
 ## Configuration
 
-Configuration is environment-driven and validated before backend startup.
+```bash
+cp .env.example .env
+```
 
-1. Copy `.env.example` to `.env`.
-2. Fill the JWT secret, AWS region, five DynamoDB table names and S3 bucket.
-3. Provide AWS credentials through an IAM role, workload identity, AWS
-   SSO/profile, or temporary untracked local credentials.
-4. Keep all real secrets and resource identifiers out of git.
+Fill the JWT secret, AWS identity/Region, five table names, popular list ID, S3
+bucket/prefixes and frontend URL. Keep `.env` untracked.
 
-Canonical DynamoDB variables:
+The backend validates:
 
-- `AWS_DYNAMODB_MOVIES_TABLE`
-- `AWS_DYNAMODB_POPULAR_TABLE`
-- `AWS_DYNAMODB_USERS_TABLE`
-- `AWS_DYNAMODB_INTERACTIONS_TABLE`
-- `AWS_DYNAMODB_RECOMMENDATION_CACHE_TABLE`
+- AWS credential chain and caller identity
+- all five table states and exact key schemas
+- S3 bucket and prefix-list access
+- enabled SageMaker endpoint state
+- API, JWT, URL, timeout, retry and logging settings
 
-See:
-
-- [Configuration source of truth](docs/aws-configuration.md)
-- [AWS resource mapping](docs/aws-resource-mapping.md)
-- [AWS and Docker verification](docs/setup/aws-verification.md)
-- [Configuration migration report](docs/configuration-migration-report.md)
+See [Environment Variables](docs/aws/environment.md).
 
 ## Docker
 
 ```bash
 docker compose config --quiet
-docker compose up --build
+docker compose up --build -d
+docker compose ps
 ```
 
-Default local endpoints from `.env.example`:
+Default local URLs:
 
-- Frontend: `http://127.0.0.1:5173`
-- Backend health: `http://127.0.0.1:8000/health`
-- API documentation: `http://127.0.0.1:8000/docs`
-
-Host ports, container ports, bind hosts, reload behavior and healthcheck
-settings are configurable through `.env`.
-
-## Native development
-
-Backend:
-
-```bash
-cd backend
-python -m pip install -r requirements.txt
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-Frontend:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Native processes must receive the same environment variables documented in
-`.env.example`.
+- frontend: `http://127.0.0.1:5173`
+- backend health: `http://127.0.0.1:8000/health`
+- OpenAPI: `http://127.0.0.1:8000/docs`
 
 ## Verification
 
 ```bash
-docker compose exec -T backend python -m unittest discover -s tests -v
+docker compose exec -T backend \
+  python -m unittest discover -s tests -p "test_*.py" -v
 docker compose exec -T frontend npm run typecheck
 docker compose exec -T frontend npm run build
 ```
 
 ## Documentation
 
-- [API contract](docs/api/api-contract.md)
+- [AWS Setup](docs/aws/aws-setup.md)
+- [DynamoDB](docs/aws/dynamodb.md)
+- [Amazon S3](docs/aws/s3.md)
+- [SageMaker](docs/aws/sagemaker.md)
+- [Environment Variables](docs/aws/environment.md)
+- [Project Deployment](docs/aws/project-deployment.md)
+- [AWS Resource Mapping](docs/aws/resource-mapping.md)
+- [AWS Migration Report](docs/aws-migration-report.md)
+- [API Contract](docs/api/api-contract.md)
 - [Architecture](docs/architecture/README.md)
-- [Authentication flow](docs/architecture/authentication-flow.md)
-- [Interaction pipeline](docs/architecture/interaction-pipeline.md)
-- [Backend domain model](backend/docs/domain-model.md)
-- [Repository layer](backend/docs/repositories.md)
+- [Authentication](docs/architecture/authentication-flow.md)
+- [Interaction Pipeline](docs/architecture/interaction-pipeline.md)
 
-## Deployment
-
-The GitHub workflow builds frontend/backend and deploys to an externally managed
-EC2 host. Configure GitHub secrets `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY` and
-repository variable `EC2_APP_DIR`. Runtime AWS resources and IAM policies are
-provisioned outside this repository.
+SageMaker inference remains disabled until a compatible model is trained and
+deployed. Enabling it later requires implementing only the provider's
+`invoke_endpoint()` method; frontend, API, services and repositories stay
+unchanged.

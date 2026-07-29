@@ -57,25 +57,66 @@ TABLES = {
     for name in FakeDynamoDBTable.KEY_FIELDS
 }
 
+
+class FakeDynamoDBResource:
+    def Table(self, name: str) -> FakeDynamoDBTable:
+        return TABLES[name]
+
+    def batch_get_item(
+        self,
+        *,
+        RequestItems: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
+        responses: dict[str, list[dict[str, Any]]] = {}
+        for table_name, options in RequestItems.items():
+            table = TABLES[table_name]
+            responses[table_name] = [
+                dict(item)
+                for key in options.get("Keys", [])
+                if (item := table.items.get(table._key(key))) is not None
+            ]
+        return {"Responses": responses, "UnprocessedKeys": {}}
+
+
+for legacy_name in (
+    "AWS_DYNAMODB_TABLE_MOVIES",
+    "AWS_DYNAMODB_TABLE_POPULAR",
+    "AWS_DYNAMODB_TABLE_USERS",
+    "AWS_DYNAMODB_TABLE_INTERACTIONS",
+    "AWS_DYNAMODB_TABLE_RECOMMENDATION_CACHE",
+):
+    os.environ.pop(legacy_name, None)
+
+
 os.environ.update(
     {
         "JWT_SECRET": "http-flow-test-secret-with-at-least-32-bytes",
         "AWS_REGION": "ap-southeast-1",
-        "AWS_DYNAMODB_TABLE_MOVIES": "Movies",
-        "AWS_DYNAMODB_TABLE_POPULAR": "PopularMovies",
-        "AWS_DYNAMODB_TABLE_USERS": "Users",
-        "AWS_DYNAMODB_TABLE_INTERACTIONS": "UserInteractions",
-        "AWS_DYNAMODB_TABLE_RECOMMENDATION_CACHE": "RecommendationCache",
+        "AWS_DYNAMODB_MOVIES_TABLE": "Movies",
+        "AWS_DYNAMODB_POPULAR_TABLE": "PopularMovies",
+        "AWS_DYNAMODB_USERS_TABLE": "Users",
+        "AWS_DYNAMODB_INTERACTIONS_TABLE": "UserInteractions",
+        "AWS_DYNAMODB_RECOMMENDATION_CACHE_TABLE": "RecommendationCache",
         "AWS_S3_BUCKET": "test-movie-recommendation-bucket",
         "AWS_VALIDATE_CREDENTIALS": "False",
+        "AWS_VALIDATE_RESOURCES": "False",
+        "AWS_DYNAMODB_POPULAR_LIST_ID": "top_rated_all",
+        "AWS_S3_DATASET_PREFIX": "app/test/data/",
+        "AWS_S3_RAW_PREFIX": "app/test/data/raw/",
+        "AWS_S3_PROCESSED_PREFIX": "app/test/data/processed/",
+        "AWS_S3_FEATURES_PREFIX": "app/test/data/features/",
+        "AWS_S3_SERVING_PREFIX": "app/test/data/serving/",
+        "AWS_S3_TRAINING_PREFIX": "app/test/data/splits/",
+        "AWS_S3_MODEL_PREFIX": "app/test/artifacts/",
+        "AWS_S3_OUTPUT_PREFIX": "app/test/reports/",
+        "AWS_S3_INTERACTION_EXPORT_PREFIX": "app/test/events/",
         "PASSWORD_HASH_ITERATIONS": "10000",
         "ALLOW_LEGACY_DEV_LOGIN": "True",
     }
 )
 sys.modules["boto3"] = types.SimpleNamespace(
-    resource=lambda *_args, **_kwargs: types.SimpleNamespace(
-        Table=lambda name: TABLES[name]
-    )
+    resource=lambda *_args, **_kwargs: FakeDynamoDBResource(),
+    client=lambda *_args, **_kwargs: types.SimpleNamespace(),
 )
 
 from app.main import app
@@ -85,6 +126,16 @@ class AuthenticationHTTPFlowTests(unittest.TestCase):
     def setUp(self) -> None:
         for table in TABLES.values():
             table.clear()
+        TABLES["PopularMovies"].put_item(
+            Item={
+                "list_id": "top_rated_all",
+                "ranking_type": "ALL",
+                "genre": "ALL",
+                "movie_ids": [],
+                "scores": [],
+                "generated_at": "2026-07-28T00:00:00Z",
+            }
+        )
         self.client = TestClient(app)
 
     def test_first_login_must_complete_onboarding_for_recommendations(self) -> None:
@@ -134,6 +185,41 @@ class AuthenticationHTTPFlowTests(unittest.TestCase):
         )
         self.assertEqual(onboarding.status_code, 200)
         self.assertEqual(onboarding.json()["user_state"], "returning_user")
+        TABLES["Movies"].put_item(
+            Item={
+                "movie_id": "265330",
+                "title": "Cached movie",
+                "release_year": 2024,
+                "genres": ["Drama"],
+                "overview": "Loaded from DynamoDB.",
+                "poster_path": "/poster.jpg",
+                "vote_average": 8.0,
+                "vote_count": 100,
+                "popularity": 20.0,
+                "runtime": 100,
+                "original_language": "en",
+                "companies": ["Studio"],
+                "countries": ["Vietnam"],
+                "actors": ["Actor"],
+                "directors": ["Director"],
+            }
+        )
+        TABLES["RecommendationCache"].put_item(
+            Item={
+                "user_id": session["user"]["user_id"],
+                "scenario": "default",
+                "items": [
+                    {
+                        "movie_id": "265330",
+                        "score": 0.9,
+                        "reason_code": "cache_hit",
+                    }
+                ],
+                "model_version": "deployed-cache-v1",
+                "generated_at": "2026-07-28T00:00:00Z",
+                "expire_at": 4_102_444_800,
+            }
+        )
 
         recommendations = self.client.get(
             f"/api/v1/recommend/{session['user']['user_id']}",
