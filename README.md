@@ -1,78 +1,98 @@
 # Movie Recommendation System
 
-A Netflix-style movie recommendation prototype built with a React frontend, a FastAPI backend, and an ML-oriented service layer for future model integration.
+A Netflix-style movie application with a React/Vite frontend, FastAPI backend,
+five DynamoDB tables and an ML submodule prepared for future AWS training and
+inference work.
 
-## Project overview
-
-This repository currently implements a simple end-to-end experience:
-
-- the frontend renders a polished landing page and requests recommendation data from the backend
-- the backend exposes REST endpoints for movies, recommendations, JWT authentication, profiles, and onboarding
-- the ML layer is currently represented by a service abstraction and a mock recommendation path, with future support planned for SageMaker-based inference
-
-## Current architecture
+## Current runtime
 
 ```text
-User
-  |
-Frontend (React + Vite)
-  |
-Backend API (FastAPI)
-  |
-Service layer / repositories
-  |
-Recommendation provider (mock today, ML-ready)
-  |
-AWS / storage integration (planned and partially scaffolded)
+Browser
+  -> centralized frontend API client
+  -> FastAPI router
+  -> service
+  -> DynamoDB repository / recommendation provider
+  -> stable API response
 ```
 
-## Current implementation status
+The current backend uses real DynamoDB repositories for Movies, Users,
+UserInteractions and RecommendationCache. Recommendation cache misses still use
+`MockRecommendationProvider`; this configuration phase does not integrate
+SageMaker or change recommendation behavior.
 
-### Implemented
+## Features
 
-- React landing page and movie section UI
-- FastAPI backend with API routes
-- registered-user authentication with salted password hashes and JWT access tokens
-- service/repository abstractions for movies and recommendations
-- mock recommendation provider for local development
-- Docker Compose based local deployment
-- initial AWS-related scaffolding for S3, SageMaker, and DynamoDB integration
-
-### Not yet production-ready
-
-- no real persisted movie database
-- no deployed ML model
-- no external identity provider or distributed JWT revocation store
-- no real AWS credentials or deployment wiring beyond scaffolding
+- Guest movie browsing and movie detail
+- JWT registration, login, profile and onboarding
+- First-login and returning-user routing
+- Click, watch, rating, reaction and share interaction storage
+- Per-user recommendation cache
+- Poster-based simulated playback
+- Frontend services/hooks with no direct component networking
 
 ## Repository structure
 
 ```text
-project-root/
-├── frontend/            # React/Vite UI
-├── backend/             # FastAPI application
-│   ├── app/
-│   │   ├── api/          # routes
-│   │   ├── services/     # business logic
-│   │   ├── repositories/ # data access abstraction
-│   │   ├── schemas/      # response models
-│   │   └── core/         # config and shared utilities
-│   └── README.md
-├── ml/                  # ML scaffolding and future training assets
-├── docker-compose.yml   # local container orchestration
-├── .env.example         # environment variable template
-└── README.md            # project overview
+frontend/       React, Vite and TypeScript
+backend/        FastAPI services, repositories, models and tests
+docs/           API, architecture, configuration and setup documentation
+ml/             Independent recommendation-system Git submodule
+docker-compose.yml
+.env.example
 ```
 
-## API contract
+## Configuration
 
-A stable API contract for the current frontend/backend boundary is documented in [docs/api/api-contract.md](docs/api/api-contract.md).
-The guest, first-login, returning-user, JWT, and redirect behavior is documented
-in [docs/architecture/authentication-flow.md](docs/architecture/authentication-flow.md).
+Configuration is environment-driven and validated before backend startup.
 
-## Development flow
+1. Copy `.env.example` to `.env`.
+2. Fill the JWT secret, AWS region, five DynamoDB table names and S3 bucket.
+3. Provide AWS credentials through an IAM role, workload identity, AWS
+   SSO/profile, or temporary untracked local credentials.
+4. Keep all real secrets and resource identifiers out of git.
 
-### Frontend
+Canonical DynamoDB variables:
+
+- `AWS_DYNAMODB_MOVIES_TABLE`
+- `AWS_DYNAMODB_POPULAR_TABLE`
+- `AWS_DYNAMODB_USERS_TABLE`
+- `AWS_DYNAMODB_INTERACTIONS_TABLE`
+- `AWS_DYNAMODB_RECOMMENDATION_CACHE_TABLE`
+
+See:
+
+- [Configuration source of truth](docs/aws-configuration.md)
+- [AWS resource mapping](docs/aws-resource-mapping.md)
+- [AWS and Docker verification](docs/setup/aws-verification.md)
+- [Configuration migration report](docs/configuration-migration-report.md)
+
+## Docker
+
+```bash
+docker compose config --quiet
+docker compose up --build
+```
+
+Default local endpoints from `.env.example`:
+
+- Frontend: `http://127.0.0.1:5173`
+- Backend health: `http://127.0.0.1:8000/health`
+- API documentation: `http://127.0.0.1:8000/docs`
+
+Host ports, container ports, bind hosts, reload behavior and healthcheck
+settings are configurable through `.env`.
+
+## Native development
+
+Backend:
+
+```bash
+cd backend
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Frontend:
 
 ```bash
 cd frontend
@@ -80,48 +100,29 @@ npm install
 npm run dev
 ```
 
-### Backend
+Native processes must receive the same environment variables documented in
+`.env.example`.
+
+## Verification
 
 ```bash
-cd backend
-python -m pip install -r requirements.txt
-PYTHONPATH=. python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+docker compose exec -T backend python -m unittest discover -s tests -v
+docker compose exec -T frontend npm run typecheck
+docker compose exec -T frontend npm run build
 ```
 
-## Environment variables
+## Documentation
 
-Copy `.env.example` to `.env` and adjust values as needed.
+- [API contract](docs/api/api-contract.md)
+- [Architecture](docs/architecture/README.md)
+- [Authentication flow](docs/architecture/authentication-flow.md)
+- [Interaction pipeline](docs/architecture/interaction-pipeline.md)
+- [Backend domain model](backend/docs/domain-model.md)
+- [Repository layer](backend/docs/repositories.md)
 
-Required backend variables:
+## Deployment
 
-- `JWT_SECRET`
-- `AWS_REGION`
-- `AWS_DYNAMODB_TABLE_MOVIES`
-- `AWS_DYNAMODB_TABLE_POPULAR`
-- `AWS_DYNAMODB_TABLE_USERS`
-- `AWS_DYNAMODB_TABLE_INTERACTIONS`
-- `AWS_DYNAMODB_TABLE_RECOMMENDATION_CACHE`
-
-Optional authentication settings include `JWT_ISSUER`, `JWT_AUDIENCE`,
-`JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `PASSWORD_HASH_ITERATIONS`, and the
-development-only `ALLOW_LEGACY_DEV_LOGIN`. The frontend uses `VITE_API_URL`,
-defaulting to the local backend URL. AWS credentials follow the standard AWS
-SDK credential chain and must not be committed.
-
-## AWS integration roadmap
-
-### Phase 1 — Local development
-- run frontend and backend locally
-- use mock recommendations
-
-### Phase 2 — S3 dataset storage
-- store training and sample datasets in S3
-
-### Phase 3 — SageMaker training
-- train and package models in SageMaker
-
-### Phase 4 — SageMaker endpoint
-- deploy a recommendation endpoint
-
-### Phase 5 — Backend integration
-- switch the backend from mock recommendations to live model inference
+The GitHub workflow builds frontend/backend and deploys to an externally managed
+EC2 host. Configure GitHub secrets `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY` and
+repository variable `EC2_APP_DIR`. Runtime AWS resources and IAM policies are
+provisioned outside this repository.

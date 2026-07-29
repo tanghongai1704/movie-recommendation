@@ -93,8 +93,9 @@ The authentication middleware validates signature, type, issuer, audience,
 issued-at time, and expiration. Valid claims are attached to `request.state`.
 Protected dependencies then resolve the current user from Users.
 
-`JWT_SECRET` is required, must be at least 32 bytes, and must differ by
-environment.
+`JWT_SECRET_KEY` is required, must be at least 32 bytes, and must differ by
+environment. `JWT_ALGORITHM` is validated as `HS256`. The legacy name
+`JWT_SECRET` remains a temporary configuration alias only.
 
 ## Protected request flow
 

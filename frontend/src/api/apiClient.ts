@@ -1,4 +1,5 @@
 import type { ApiErrorResponse } from '../types/api';
+import { frontendConfig } from '../config/environment';
 
 type QueryValue = string | number | boolean | null | undefined;
 type QueryParams = Record<string, QueryValue>;
@@ -9,9 +10,7 @@ interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
     requiresAuth?: boolean;
 }
 
-const API_BASE_URL = (
-    import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'
-).replace(/\/+$/, '');
+const API_BASE_URL = frontendConfig.apiBaseUrl;
 const TOKEN_STORAGE_KEY = 'movie-recommendation.access-token';
 export const AUTH_UNAUTHORIZED_EVENT = 'movie-recommendation:unauthorized';
 

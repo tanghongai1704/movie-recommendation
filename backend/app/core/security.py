@@ -128,18 +128,22 @@ class JWTService:
         self,
         *,
         secret: str,
+        algorithm: str = "HS256",
         issuer: str,
         audience: str,
         access_token_minutes: int,
     ) -> None:
         if len(secret.encode("utf-8")) < 32:
-            raise ValueError("JWT_SECRET must contain at least 32 bytes")
+            raise ValueError("JWT_SECRET_KEY must contain at least 32 bytes")
+        if algorithm != "HS256":
+            raise ValueError("JWT_ALGORITHM must be HS256")
         if not issuer or not audience:
             raise ValueError("JWT issuer and audience must not be empty")
         if access_token_minutes <= 0:
             raise ValueError("JWT access token lifetime must be positive")
 
         self._secret = secret.encode("utf-8")
+        self._algorithm = algorithm
         self._issuer = issuer
         self._audience = audience
         self._lifetime = timedelta(minutes=access_token_minutes)
@@ -159,7 +163,7 @@ class JWTService:
             "aud": self._audience,
             "token_type": "access",
         }
-        header = {"alg": "HS256", "typ": "JWT"}
+        header = {"alg": self._algorithm, "typ": "JWT"}
         encoded_header = self._encode_json(header)
         encoded_payload = self._encode_json(payload)
         signing_input = f"{encoded_header}.{encoded_payload}".encode("ascii")
@@ -185,7 +189,10 @@ class JWTService:
         ) as exc:
             raise TokenValidationError("invalid access token") from exc
 
-        if header.get("alg") != "HS256" or header.get("typ") != "JWT":
+        if (
+            header.get("alg") != self._algorithm
+            or header.get("typ") != "JWT"
+        ):
             raise TokenValidationError("invalid access token")
 
         signing_input = f"{encoded_header}.{encoded_payload}".encode("ascii")

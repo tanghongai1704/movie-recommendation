@@ -42,9 +42,9 @@ class RecommendationService:
         cache: RecommendationCacheStore,
         movie_repository: MovieRepository,
         *,
-        cache_ttl_seconds: int = 300,
-        scenario: str = "default",
-        model_version: str = "mock-v1",
+        cache_ttl_seconds: int,
+        scenario: str,
+        model_version: str,
         clock: Callable[[], float] = time,
     ) -> None:
         if cache_ttl_seconds <= 0:

@@ -97,14 +97,17 @@ contain fallback resource names.
 The application composition layer supplies values from:
 
 - `AWS_REGION`
-- `AWS_DYNAMODB_TABLE_MOVIES`
-- `AWS_DYNAMODB_TABLE_POPULAR`
-- `AWS_DYNAMODB_TABLE_USERS`
-- `AWS_DYNAMODB_TABLE_INTERACTIONS`
-- `AWS_DYNAMODB_TABLE_RECOMMENDATION_CACHE`
+- `AWS_DYNAMODB_MOVIES_TABLE`
+- `AWS_DYNAMODB_POPULAR_TABLE`
+- `AWS_DYNAMODB_USERS_TABLE`
+- `AWS_DYNAMODB_INTERACTIONS_TABLE`
+- `AWS_DYNAMODB_RECOMMENDATION_CACHE_TABLE`
 
 Startup fails with a clear configuration error when a required variable is
-missing or empty.
+missing or empty. The composition root creates one configured boto3 DynamoDB
+resource with environment-driven region, endpoint, timeout and retry settings,
+then injects table handles into each repository. Legacy table-variable names
+remain temporary aliases during deployment migration.
 
 ## Domain mapping
 

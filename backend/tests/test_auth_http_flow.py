@@ -66,6 +66,8 @@ os.environ.update(
         "AWS_DYNAMODB_TABLE_USERS": "Users",
         "AWS_DYNAMODB_TABLE_INTERACTIONS": "UserInteractions",
         "AWS_DYNAMODB_TABLE_RECOMMENDATION_CACHE": "RecommendationCache",
+        "AWS_S3_BUCKET": "test-movie-recommendation-bucket",
+        "AWS_VALIDATE_CREDENTIALS": "False",
         "PASSWORD_HASH_ITERATIONS": "10000",
         "ALLOW_LEGACY_DEV_LOGIN": "True",
     }

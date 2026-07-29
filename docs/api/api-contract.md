@@ -1,6 +1,8 @@
 # Stable API Contract
 
-Base URL: `http://127.0.0.1:8000/api/v1`
+Base URL: the configured `VITE_API_URL`. With `.env.example`, this is
+`http://127.0.0.1:8000/api/v1`. The backend router prefix is configured by
+`API_PREFIX`; both values must remain aligned.
 
 Protected endpoints require:
 

@@ -1,10 +1,8 @@
 import { apiClient } from '../api/apiClient';
+import { frontendConfig } from '../config/environment';
 import type { Movie, MovieListParams } from '../types/api';
 
-const TMDB_POSTER_BASE_URL = (
-    import.meta.env.VITE_TMDB_POSTER_BASE_URL ||
-    'https://image.tmdb.org/t/p/w500'
-).replace(/\/+$/, '');
+const TMDB_POSTER_BASE_URL = frontendConfig.tmdbPosterBaseUrl;
 
 function resolvePosterUrl(posterPath: string | null): string | null {
     const value = posterPath?.trim();

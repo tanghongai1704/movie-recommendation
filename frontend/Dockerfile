@@ -3,5 +3,8 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install
 COPY . .
-EXPOSE 5173
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+ARG FRONTEND_CONTAINER_PORT=5173
+ENV VITE_HOST=0.0.0.0 \
+    VITE_PORT=${FRONTEND_CONTAINER_PORT}
+EXPOSE ${FRONTEND_CONTAINER_PORT}
+CMD ["npm", "run", "dev"]

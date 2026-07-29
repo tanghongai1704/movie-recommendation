@@ -9,9 +9,6 @@ on:
 permissions:
   contents: read
 
-env:
-  EC2_APP_DIR: /home/ubuntu/movie-recommendation
-
 jobs:
   build-frontend:
     name: Build frontend
@@ -72,7 +69,8 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd ${{ env.EC2_APP_DIR }}
+            test -n "${{ vars.EC2_APP_DIR }}"
+            cd "${{ vars.EC2_APP_DIR }}"
             git pull origin main
             docker compose pull
             docker compose up -d

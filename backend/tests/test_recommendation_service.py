@@ -72,6 +72,8 @@ class RecommendationServiceTests(unittest.TestCase):
             cache=cache,
             movie_repository=repository,
             cache_ttl_seconds=60,
+            scenario="default",
+            model_version="mock-v1",
             clock=lambda: now,
         )
 

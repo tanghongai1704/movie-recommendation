@@ -1,5 +1,4 @@
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -10,21 +9,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from app.api.v1.routes import movies as movie_routes
-from app.api.v1.routes import auth as auth_routes
-from app.api.v1.routes import interactions as interaction_routes
-from app.container import jwt_service
-from app.middleware.authentication import JWTAuthenticationMiddleware
+from app.core.config import settings
 
 
 def configure_logging() -> None:
-    log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
-    log_level = getattr(logging, log_level_name, logging.INFO)
-
     logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
+        level=getattr(logging, settings.logging.level),
+        format=settings.logging.format,
+        datefmt=settings.logging.date_format,
         handlers=[logging.StreamHandler(sys.stdout)],
         force=True,
     )
@@ -33,16 +25,24 @@ def configure_logging() -> None:
 configure_logging()
 logger = logging.getLogger("movie_recommendation")
 
+from app.api.v1.routes import auth as auth_routes
+from app.api.v1.routes import interactions as interaction_routes
+from app.api.v1.routes import movies as movie_routes
+from app.container import jwt_service
+from app.middleware.authentication import JWTAuthenticationMiddleware
+
 app = FastAPI(
-    title="Movie Recommendation API",
-    version="1.0.0",
-    description="Production-ready FastAPI backend for movie browsing and authentication",
+    title=settings.application.title,
+    version=settings.application.version,
+    description=settings.application.description,
+    debug=settings.application.debug,
+    docs_url=settings.api.docs_path,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=list(settings.api.cors_allowed_origins),
+    allow_credentials=settings.api.cors_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -51,12 +51,24 @@ app.add_middleware(
     jwt_service=jwt_service,
 )
 
-app.include_router(auth_routes.router, prefix="/api/v1", tags=["auth"])
-app.include_router(movie_routes.router, prefix="/api/v1", tags=["movies"])
-app.include_router(interaction_routes.router, prefix="/api/v1", tags=["interactions"])
+app.include_router(
+    auth_routes.router,
+    prefix=settings.api.prefix,
+    tags=["auth"],
+)
+app.include_router(
+    movie_routes.router,
+    prefix=settings.api.prefix,
+    tags=["movies"],
+)
+app.include_router(
+    interaction_routes.router,
+    prefix=settings.api.prefix,
+    tags=["interactions"],
+)
 
 
-@app.get("/health")
+@app.get(settings.api.health_path)
 def health_check() -> dict[str, str]:
     logger.info("Health check requested")
     return {"status": "ok"}

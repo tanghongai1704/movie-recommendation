@@ -128,7 +128,8 @@ compatibility behavior, data-migration requirements, and deferred work.
 - `app/repositories/` - DynamoDB and in-memory data access
 - `app/models/` - canonical persistence models
 - `app/schemas/` - request and response DTOs
-- `app/core/config.py` - application configuration
+- `app/core/config.py` - typed application configuration sections
+- `app/core/config_validation.py` - reusable environment/startup validators
 
 ## Local development
 
@@ -140,25 +141,19 @@ PYTHONPATH=. python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reloa
 
 ## Environment variables
 
-- `LOG_LEVEL` - logging level, default `INFO`
-- `DEBUG` - enables debug mode when set to `True`
-- `JWT_SECRET` - required secret with at least 32 bytes
-- `JWT_ISSUER` - JWT issuer, default `movie-recommendation-api`
-- `JWT_AUDIENCE` - JWT audience, default `movie-recommendation-frontend`
-- `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` - access-token lifetime, default `60`
-- `PASSWORD_HASH_ITERATIONS` - PBKDF2 work factor, default `10000`
-- `ALLOW_LEGACY_DEV_LOGIN` - development-only compatibility for deterministic
-  schema-v2 seed credentials; defaults to `False`
-- `AWS_REGION` - DynamoDB region
-- `AWS_DYNAMODB_TABLE_MOVIES` - Movies table name
-- `AWS_DYNAMODB_TABLE_POPULAR` - PopularMovies table name
-- `AWS_DYNAMODB_TABLE_USERS` - Users table name
-- `AWS_DYNAMODB_TABLE_INTERACTIONS` - UserInteractions table name
-- `AWS_DYNAMODB_TABLE_RECOMMENDATION_CACHE` - RecommendationCache table name
-- `RECOMMENDATION_CACHE_TTL_SECONDS` - application cache validity window
+The complete source of truth is
+[AWS and application configuration](../docs/aws-configuration.md). Required
+backend values include `JWT_SECRET_KEY`, `AWS_REGION`, the five canonical
+`AWS_DYNAMODB_*_TABLE` variables and `AWS_S3_BUCKET`.
 
-All AWS region and DynamoDB table variables are required. Repository
-implementations contain no fallback table names.
+Startup validates credentials, URLs, AWS region, table names, S3 bucket, JWT,
+logging, timeouts, retry settings and cache configuration. Legacy
+`JWT_SECRET`/`AWS_DYNAMODB_TABLE_*` names remain temporary read aliases so
+existing deployments can migrate without changing API behavior.
+
+The composition root creates one configured DynamoDB resource and injects its
+table handles into repositories. Repository CRUD operations do not contain
+fallback resource names.
 
 `ALLOW_LEGACY_DEV_LOGIN` does not rewrite Users records. When enabled, it
 accepts only the exact `<user_id>#username`, `<user_id>@email.com`, and

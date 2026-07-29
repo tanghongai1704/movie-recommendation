@@ -71,8 +71,7 @@ https://image.tmdb.org/t/p/w500/3LdEtd3IMJtw4zitgWZpIc60UFX.jpg
 
 Absolute poster URLs remain unchanged. Broken or missing images fall back to
 the local placeholder. Override the image base and size with
-`VITE_TMDB_POSTER_BASE_URL`; the default is
-`https://image.tmdb.org/t/p/w500`.
+the required `VITE_TMDB_POSTER_BASE_URL` value.
 
 ## Simulated player
 
@@ -130,7 +129,14 @@ npm run dev
 
 ## Environment variables
 
-- `VITE_API_URL` — backend API base URL, default
-  `http://127.0.0.1:8000/api/v1`
-- `VITE_TMDB_POSTER_BASE_URL` — TMDB image base and size, default
-  `https://image.tmdb.org/t/p/w500`
+- `VITE_API_URL` — required backend API base URL, including `API_PREFIX`
+- `VITE_TMDB_POSTER_BASE_URL` — required TMDB image base and size
+- `VITE_HOST` — optional Vite development bind host
+- `VITE_PORT` — optional Vite development port
+
+`src/config/environment.ts` is the only frontend runtime URL configuration
+module. It fails fast on missing or invalid URLs. Only `VITE_*` variables are
+available to browser code; never place credentials or secrets in them.
+
+See [project configuration](../docs/aws-configuration.md) for the full template
+and Docker mapping.
