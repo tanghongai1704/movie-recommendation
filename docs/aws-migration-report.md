@@ -74,8 +74,8 @@ The audit found:
 - endpoint media type and result limit
 - removed backend-only placeholders for training job, model resource, execution
   role, instance type, legacy cache scenario, and the duplicate feature prefix
-- omitted empty AWS credential/profile placeholders so boto3 can use its normal
-  credential provider chain
+- retained complete blank AWS credential/profile placeholders and normalized
+  blank values before boto3 resolves its credential provider chain
 - production Docker reload default disabled
 - Compose restart policy enabled
 

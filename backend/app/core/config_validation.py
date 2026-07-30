@@ -12,6 +12,26 @@ class ConfigurationError(RuntimeError):
     """Raised when runtime configuration is missing or inconsistent."""
 
 
+def normalize_blank_aws_sdk_environment() -> None:
+    """Remove blank optional AWS variables before boto3 reads its environment.
+
+    Environment templates deliberately list these variables for discoverability.
+    Botocore treats an empty ``AWS_PROFILE`` as an actual profile name instead
+    of falling back to its default credential chain, so blank placeholders must
+    be made equivalent to variables that were not declared.
+    """
+
+    for name in (
+        "AWS_PROFILE",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "AWS_ENDPOINT_URL",
+    ):
+        if name in os.environ and not os.environ[name].strip():
+            del os.environ[name]
+
+
 def environment_value(
     name: str,
     *,

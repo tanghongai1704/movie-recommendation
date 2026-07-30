@@ -10,6 +10,7 @@ from app.core.config_validation import (
     csv_value,
     environment_value,
     integer_value,
+    normalize_blank_aws_sdk_environment,
     validate_api_path,
     validate_aws_credentials,
     validate_aws_region,
@@ -129,6 +130,7 @@ class Settings:
 
     @classmethod
     def from_environment(cls) -> "Settings":
+        normalize_blank_aws_sdk_environment()
         region = validate_aws_region(
             str(
                 environment_value(

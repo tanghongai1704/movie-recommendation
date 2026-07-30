@@ -60,6 +60,32 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(settings.cache.ttl_seconds, 600)
         self.assertEqual(settings.authentication.algorithm, "HS256")
 
+    def test_blank_aws_placeholders_use_default_credential_chain(self) -> None:
+        environment = self.canonical_environment()
+        environment.update(
+            {
+                "AWS_PROFILE": "",
+                "AWS_ACCESS_KEY_ID": "",
+                "AWS_SECRET_ACCESS_KEY": "",
+                "AWS_SESSION_TOKEN": "",
+                "AWS_ENDPOINT_URL": "",
+                "AWS_VALIDATE_CREDENTIALS": "True",
+            }
+        )
+
+        with patch("boto3.Session") as session:
+            session.return_value.get_credentials.return_value = object()
+            with patch.dict(os.environ, environment, clear=True):
+                settings = Settings.from_environment()
+                self.assertNotIn("AWS_PROFILE", os.environ)
+                self.assertNotIn("AWS_ACCESS_KEY_ID", os.environ)
+                self.assertNotIn("AWS_SECRET_ACCESS_KEY", os.environ)
+                self.assertNotIn("AWS_SESSION_TOKEN", os.environ)
+                self.assertNotIn("AWS_ENDPOINT_URL", os.environ)
+
+        self.assertIsNone(settings.aws.profile)
+        self.assertIsNone(settings.aws.endpoint_url)
+
     def test_supports_legacy_environment_names_during_migration(self) -> None:
         environment = {
             "JWT_SECRET": "y" * 32,

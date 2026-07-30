@@ -55,9 +55,10 @@ are actually used.
 | `AWS_MAX_ATTEMPTS` | SDK and BatchGet attempts | AWS SDK | No | `3` | botocore/repository | config test |
 | `AWS_RETRY_MODE` | SDK retry strategy | AWS SDK | No | `standard` | botocore | config test |
 
-Prefer IAM roles or SSO. Never commit the three explicit credential variables.
-Omit unused variables entirely: `AWS_PROFILE=` with an empty value makes boto3
-look for a profile with an empty name instead of using its default chain.
+Prefer IAM roles or SSO. Never commit the three explicit credential values.
+`.env.example` keeps the complete blank placeholders for discoverability; the
+backend removes blank optional AWS variables before boto3 resolves its default
+credential chain.
 
 ## DynamoDB
 
