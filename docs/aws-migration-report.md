@@ -54,6 +54,10 @@ The audit found:
 - added a real boto3 S3 storage boundary
 - added backend upload/download/list CLI
 - made raw data part of ML S3 synchronization
+- mapped the runtime to the deployed bucket layout:
+  `datasets/{raw,processed,serving,exports}`, `training`, `models`,
+  `inference`, and `evaluation`
+- merged the former feature prefix into `datasets/processed`
 - moved ML Region, bucket and prefixes to canonical environment variables
 - updated SageMaker/EC2 launch paths to receive an environment file
 - backend startup verifies bucket and prefix-list permission
@@ -66,8 +70,12 @@ The audit found:
 - exact DynamoDB key-schema comparison
 - required PopularMovies `list_id`
 - required environment-specific S3 prefixes
-- optional SageMaker enablement gate
+- SageMaker endpoint `movie-rec-endpoint`
 - endpoint media type and result limit
+- removed backend-only placeholders for training job, model resource, execution
+  role, instance type, legacy cache scenario, and the duplicate feature prefix
+- omitted empty AWS credential/profile placeholders so boto3 can use its normal
+  credential provider chain
 - production Docker reload default disabled
 - Compose restart policy enabled
 
@@ -121,42 +129,31 @@ The audit found:
 - [x] retired-provider cache records are rejected
 - [x] missing cache returns 503 while SageMaker is disabled
 - [x] mocked SageMaker Runtime contract/error tests pass
-- [ ] deployed endpoint describe/invoke contract test passes
+- [x] deployed endpoint describe/invoke contract test passes
+- [x] onboarding and returning-user endpoint scenarios return valid Movies IDs
 - [x] backend tests pass
+- [x] ML AWS-layout/export compatibility tests pass
 - [x] frontend typecheck/build pass
 - [x] Docker Compose healthcheck passes
 
-The checked items were verified on 2026-07-29 without mutating deployed
-DynamoDB data. The backend test suite passed 83 tests. Docker Compose rebuilt
-both images, the backend became healthy, `/health` returned `200`, the guest
-movie endpoint returned 24 real records, and the frontend typecheck and
-production build passed. The two unchecked write-path items require
-explicit acceptance-test users/events and remain deployment checks rather than
-reasons to modify production data during migration.
+The original migration checks ran on 2026-07-29 without mutating deployed
+DynamoDB data. On 2026-07-30 the canonical `.env.example` mapping additionally
+passed read-only validation against all five tables and every configured S3
+prefix. `movie-rec-endpoint` was `InService`; onboarding and returning-user
+invocations returned model version `1.0.0`, and all 20 sampled recommendation
+IDs resolved in the Movies table. The backend suite passed 83 tests and the ML
+AWS-layout/export suite passed 2 tests.
 
-## Remaining deployment verification
+The two unchecked write-path items require explicit acceptance-test
+users/events and remain deployment checks rather than reasons to mutate
+production data during migration.
 
-The Docker credential chain successfully reached SageMaker in
-`ap-southeast-1`. However, read-only checks returned no endpoints, endpoint
-configurations, or SageMaker model resources in the configured account/Region.
-`DescribeEndpoint(movie-rec-endpoint)` returned `ValidationException`.
-Therefore no live inference claim is made.
+## Remaining operational verification
 
-1. confirm the intended AWS account and Region
-2. deploy or recreate the compatible model, endpoint configuration, and
-   `movie-rec-endpoint`
-3. wait for `InService`, then run
-   `backend/scripts/test_sagemaker_endpoint.py --describe`
-4. invoke onboarding and returning-user contract requests
-5. confirm the deployed artifact uses the same contract as
-   `ml/src/recommenders/engine.py`
-6. load/timeout/rollback test the endpoint
-7. publish a serving contract for `because_you_watched()` before adding a
+1. run an authenticated API cache-miss test with a dedicated acceptance user
+2. confirm the response is written to RecommendationCache with the configured
+   TTL and endpoint model version
+3. run load, timeout, endpoint-stop, and rollback drills
+4. publish a serving contract for `because_you_watched()` before adding a
    similar-movies API
-8. apply the backend's stable string-to-int64 user mapping in future
-   interaction export/retraining jobs
-9. remove the retired legacy cache item through a separately approved cleanup
-
-The implementation is complete against the contract committed in this
-repository. Live invocation remains unchecked because the configured
-SageMaker endpoint does not currently exist.
+5. remove the retired legacy cache item through a separately approved cleanup

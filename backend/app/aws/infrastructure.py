@@ -138,7 +138,6 @@ def validate_aws_resources(
             settings.s3.dataset_prefix,
             settings.s3.raw_prefix,
             settings.s3.processed_prefix,
-            settings.s3.features_prefix,
             settings.s3.serving_prefix,
             settings.s3.training_prefix,
             settings.s3.model_prefix,

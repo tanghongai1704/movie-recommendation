@@ -1,8 +1,8 @@
 # Environment Variables
 
-`.env.example` is the machine-readable template. `.env` is untracked. Empty
-values are not examples of real resources; they must be supplied per
-environment.
+`.env.example` is the machine-readable template. `.env` is untracked. Required
+secrets are left empty; optional credential variables are omitted unless they
+are actually used.
 
 ## Application, API and logging
 
@@ -56,6 +56,8 @@ environment.
 | `AWS_RETRY_MODE` | SDK retry strategy | AWS SDK | No | `standard` | botocore | config test |
 
 Prefer IAM roles or SSO. Never commit the three explicit credential variables.
+Omit unused variables entirely: `AWS_PROFILE=` with an empty value makes boto3
+look for a profile with an empty name instead of using its default chain.
 
 ## DynamoDB
 
@@ -74,33 +76,34 @@ The former `AWS_DYNAMODB_TABLE_*` names remain migration aliases only.
 
 | Variable | Purpose | Required | Example suffix | Used by | Verification |
 |---|---|---|---|---|---|
-| `AWS_S3_BUCKET` | Durable data bucket | Yes | globally unique name | backend/ML | `head-bucket` |
-| `AWS_S3_DATASET_PREFIX` | Data root | Yes | `app/dev/data/` | mapping/validation | list prefix |
-| `AWS_S3_RAW_PREFIX` | Raw source data | Yes | `data/raw/` | S3 sync | list prefix |
-| `AWS_S3_PROCESSED_PREFIX` | Cleaned data | Yes | `data/processed/` | S3 sync | list prefix |
-| `AWS_S3_FEATURES_PREFIX` | Feature tables | Yes | `data/features/` | S3 sync | list prefix |
-| `AWS_S3_SERVING_PREFIX` | Serving exports | Yes | `data/serving/` | S3 sync | list prefix |
-| `AWS_S3_TRAINING_PREFIX` | Splits/training input | Yes | `data/splits/` | training | list prefix |
-| `AWS_S3_MODEL_PREFIX` | Versioned artifacts | Yes | `artifacts/` | training/deployment | list prefix |
-| `AWS_S3_OUTPUT_PREFIX` | Reports/job outputs | Yes | `outputs/` | training | list prefix |
-| `AWS_S3_INTERACTION_EXPORT_PREFIX` | Interaction JSONL/export | Yes | `events/` | ML exporter | list prefix |
+| `AWS_S3_BUCKET` | Durable data bucket | Yes | `movie-recommendation-fcaj` | backend/ML | `head-bucket` |
+| `AWS_S3_DATASET_PREFIX` | Dataset and DynamoDB-export root | Yes | `datasets/` | mapping/validation | list prefix |
+| `AWS_S3_RAW_PREFIX` | Raw source data | Yes | `datasets/raw/` | S3 sync | list prefix |
+| `AWS_S3_PROCESSED_PREFIX` | Cleaned data and feature tables | Yes | `datasets/processed/` | S3 sync | list prefix |
+| `AWS_S3_SERVING_PREFIX` | Model inference lookup tables | Yes | `inference/` | S3 sync/endpoint bundle | list prefix |
+| `AWS_S3_TRAINING_PREFIX` | Split/training input | Yes | `training/` | training | list prefix |
+| `AWS_S3_MODEL_PREFIX` | Versioned artifacts and bundles | Yes | `models/` | training/deployment | list prefix |
+| `AWS_S3_OUTPUT_PREFIX` | Evaluation reports | Yes | `evaluation/` | training | list prefix |
+| `AWS_S3_INTERACTION_EXPORT_PREFIX` | Interaction JSONL exports | Yes | `datasets/exports/` | ML exporter | list prefix |
+
+Feature tables intentionally share `datasets/processed/`, so the former
+`AWS_S3_FEATURES_PREFIX` variable was removed. DynamoDB table snapshots remain
+under `datasets/serving/` and are not endpoint lookup files.
 
 ## SageMaker and recommendation cache
 
 | Variable | Purpose | Required | Example | Used by | Verification |
 |---|---|---|---|---|---|
 | `AWS_SAGEMAKER_ENABLED` | Enable endpoint provider; endpoint name also enables it when omitted | No | `True` | provider/startup | cache-miss test |
-| `AWS_SAGEMAKER_TRAINING_JOB_NAME_PREFIX` | Job naming | For job | `movie-rec-train` | ML launcher | dry run |
-| `AWS_SAGEMAKER_ENDPOINT_NAME` | Real-time endpoint | When enabled | versioned name | provider | `describe-endpoint` |
-| `AWS_SAGEMAKER_MODEL_NAME` | Deployed model resource | For deployment | versioned name | deployment docs | `describe-model` |
-| `AWS_SAGEMAKER_EXECUTION_ROLE` | Execution role ARN | For job/deploy | role ARN | ML launcher | `iam get-role` |
-| `AWS_SAGEMAKER_INSTANCE_TYPE` | Training/processing instance | For job | `ml.m5.xlarge` | ML launcher | dry run |
+| `AWS_SAGEMAKER_ENDPOINT_NAME` | Real-time endpoint | When enabled | `movie-rec-endpoint` | provider | `describe-endpoint` |
 | `AWS_SAGEMAKER_CONTENT_TYPE` | Request media type | No | `application/json` | provider | contract test |
 | `AWS_SAGEMAKER_ACCEPT` | Response media type | No | `application/json` | provider | contract test |
 | `AWS_SAGEMAKER_RECOMMENDATION_LIMIT` | Endpoint result count | No | `10` | provider | provider test |
 | `RECOMMENDATION_CACHE_TTL_SECONDS` | Cache validity | No | `300` | service | service test |
-| `RECOMMENDATION_CACHE_SCENARIO` | Legacy compatibility only; runtime uses dynamic onboarding/returning keys | No | `default` | config compatibility | config test |
 | `RECOMMENDATION_MODEL_VERSION` | Fallback only when endpoint omits its model version; must never be mock for real inference | Before inference | version string | provider/service | inspect cache |
+
+Training job, execution role, model resource and instance settings belong to
+the ML deployment tooling, not the FastAPI runtime environment.
 
 ## Frontend and Docker
 

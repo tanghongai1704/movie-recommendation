@@ -22,15 +22,14 @@ class ConfigurationTests(unittest.TestCase):
             ),
             "AWS_DYNAMODB_POPULAR_LIST_ID": "top_rated_all",
             "AWS_S3_BUCKET": "movie-recommendation-test",
-            "AWS_S3_DATASET_PREFIX": "app/dev/data/",
-            "AWS_S3_RAW_PREFIX": "app/dev/data/raw/",
-            "AWS_S3_PROCESSED_PREFIX": "app/dev/data/processed/",
-            "AWS_S3_FEATURES_PREFIX": "app/dev/data/features/",
-            "AWS_S3_SERVING_PREFIX": "app/dev/data/serving/",
-            "AWS_S3_TRAINING_PREFIX": "app/dev/data/splits/",
-            "AWS_S3_MODEL_PREFIX": "app/dev/artifacts/",
-            "AWS_S3_OUTPUT_PREFIX": "app/dev/reports/",
-            "AWS_S3_INTERACTION_EXPORT_PREFIX": "app/dev/events/",
+            "AWS_S3_DATASET_PREFIX": "datasets/",
+            "AWS_S3_RAW_PREFIX": "datasets/raw/",
+            "AWS_S3_PROCESSED_PREFIX": "datasets/processed/",
+            "AWS_S3_SERVING_PREFIX": "inference/",
+            "AWS_S3_TRAINING_PREFIX": "training/",
+            "AWS_S3_MODEL_PREFIX": "models/",
+            "AWS_S3_OUTPUT_PREFIX": "evaluation/",
+            "AWS_S3_INTERACTION_EXPORT_PREFIX": "datasets/exports/",
         }
 
     def test_loads_canonical_configuration_sections(self) -> None:
@@ -57,7 +56,7 @@ class ConfigurationTests(unittest.TestCase):
         )
         self.assertEqual(settings.aws.endpoint_url, "http://localhost:4566")
         self.assertEqual(settings.s3.model_prefix, "models/current/")
-        self.assertEqual(settings.s3.raw_prefix, "app/dev/data/raw/")
+        self.assertEqual(settings.s3.raw_prefix, "datasets/raw/")
         self.assertEqual(settings.cache.ttl_seconds, 600)
         self.assertEqual(settings.authentication.algorithm, "HS256")
 
@@ -76,15 +75,14 @@ class ConfigurationTests(unittest.TestCase):
             ),
             "AWS_DYNAMODB_POPULAR_LIST_ID": "top_rated_all",
             "AWS_S3_BUCKET": "movie-recommendation-test",
-            "AWS_S3_DATASET_PREFIX": "app/dev/data/",
-            "AWS_S3_RAW_PREFIX": "app/dev/data/raw/",
-            "AWS_S3_PROCESSED_PREFIX": "app/dev/data/processed/",
-            "AWS_S3_FEATURES_PREFIX": "app/dev/data/features/",
-            "AWS_S3_SERVING_PREFIX": "app/dev/data/serving/",
-            "AWS_S3_TRAINING_PREFIX": "app/dev/data/splits/",
-            "AWS_S3_MODEL_PREFIX": "app/dev/artifacts/",
-            "AWS_S3_OUTPUT_PREFIX": "app/dev/reports/",
-            "AWS_S3_INTERACTION_EXPORT_PREFIX": "app/dev/events/",
+            "AWS_S3_DATASET_PREFIX": "datasets/",
+            "AWS_S3_RAW_PREFIX": "datasets/raw/",
+            "AWS_S3_PROCESSED_PREFIX": "datasets/processed/",
+            "AWS_S3_SERVING_PREFIX": "inference/",
+            "AWS_S3_TRAINING_PREFIX": "training/",
+            "AWS_S3_MODEL_PREFIX": "models/",
+            "AWS_S3_OUTPUT_PREFIX": "evaluation/",
+            "AWS_S3_INTERACTION_EXPORT_PREFIX": "datasets/exports/",
         }
 
         with patch.dict(os.environ, environment, clear=True):
@@ -136,11 +134,6 @@ class ConfigurationTests(unittest.TestCase):
                 "AWS_ACCESS_KEY_ID",
                 "incomplete-key",
                 "must be set together",
-            ),
-            (
-                "AWS_SAGEMAKER_EXECUTION_ROLE",
-                "not-an-arn",
-                "valid IAM role ARN",
             ),
         ]
 

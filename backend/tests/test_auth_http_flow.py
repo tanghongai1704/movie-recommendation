@@ -104,7 +104,6 @@ os.environ.update(
         "AWS_S3_DATASET_PREFIX": "app/test/data/",
         "AWS_S3_RAW_PREFIX": "app/test/data/raw/",
         "AWS_S3_PROCESSED_PREFIX": "app/test/data/processed/",
-        "AWS_S3_FEATURES_PREFIX": "app/test/data/features/",
         "AWS_S3_SERVING_PREFIX": "app/test/data/serving/",
         "AWS_S3_TRAINING_PREFIX": "app/test/data/splits/",
         "AWS_S3_MODEL_PREFIX": "app/test/artifacts/",

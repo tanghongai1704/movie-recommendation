@@ -89,9 +89,9 @@ backend image.
 ## 5. Prepare SageMaker
 
 1. Create a SageMaker execution role with S3 and CloudWatch permissions.
-2. Upload training inputs to `AWS_S3_TRAINING_PREFIX`.
+2. Read training inputs from `training/`.
 3. Submit a training/processing job from the `ml` submodule.
-4. Register the model artifact from `AWS_S3_MODEL_PREFIX`.
+4. Register `models/bundles/<version>/model.tar.gz`.
 5. Create an endpoint configuration and endpoint.
 6. Verify the endpoint is `InService`.
 7. Run `backend/scripts/test_sagemaker_endpoint.py --describe`.
@@ -105,11 +105,11 @@ See [SageMaker](sagemaker.md) for the request/response contract.
 cp .env.example .env
 ```
 
-Fill all required values. Generate `JWT_SECRET_KEY` independently per
-environment. Keep `AWS_SAGEMAKER_ENABLED=False` only while the endpoint is
-absent, intentionally deleted, or still failing contract tests.
-The backend fails startup when identity, table keys, bucket access or enabled
-endpoint state is invalid.
+Fill the remaining secret/local values. Generate `JWT_SECRET_KEY`
+independently per environment. The checked-in example already maps the real
+bucket layout and `movie-rec-endpoint`. Identity, DynamoDB keys and S3 access
+are strict startup checks; endpoint health is non-blocking so guest browsing
+remains available during endpoint maintenance.
 
 ## 7. Backend, frontend and Docker
 

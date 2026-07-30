@@ -141,7 +141,7 @@ Required for inference:
 ```env
 AWS_REGION=ap-southeast-1
 AWS_SAGEMAKER_ENABLED=True
-AWS_SAGEMAKER_ENDPOINT_NAME=<endpoint-name>
+AWS_SAGEMAKER_ENDPOINT_NAME=movie-rec-endpoint
 AWS_SAGEMAKER_CONTENT_TYPE=application/json
 AWS_SAGEMAKER_ACCEPT=application/json
 AWS_SAGEMAKER_RECOMMENDATION_LIMIT=10
@@ -152,10 +152,8 @@ RECOMMENDATION_MODEL_VERSION=<fallback-version>
 `RECOMMENDATION_MODEL_VERSION` is used only if the endpoint omits
 `model_version`. Never set it to `mock-v1` for a real endpoint.
 
-`AWS_SAGEMAKER_MODEL_NAME`, `AWS_SAGEMAKER_EXECUTION_ROLE`,
-`AWS_SAGEMAKER_INSTANCE_TYPE`, and
-`AWS_SAGEMAKER_TRAINING_JOB_NAME_PREFIX` belong to deployment/training tools;
-the backend does not require them to invoke an existing endpoint.
+Training/deployment values are configured by the ML tooling. FastAPI needs
+only the endpoint name and runtime media-type/limit settings.
 
 ## Credentials
 

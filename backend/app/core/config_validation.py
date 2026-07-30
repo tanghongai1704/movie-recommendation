@@ -249,19 +249,6 @@ def validate_sagemaker_resource_name(
     return value
 
 
-def validate_iam_role_arn(value: str | None) -> str | None:
-    if value is None or not value.strip():
-        return None
-    if not re.fullmatch(
-        r"arn:(?:aws|aws-us-gov|aws-cn):iam::\d{12}:role/.+",
-        value,
-    ):
-        raise ConfigurationError(
-            "AWS_SAGEMAKER_EXECUTION_ROLE must be a valid IAM role ARN"
-        )
-    return value
-
-
 def validate_aws_credentials(*, enabled: bool) -> None:
     """Fail fast when neither explicit nor default-chain credentials exist."""
 

@@ -92,7 +92,6 @@ def test_settings() -> SimpleNamespace:
             dataset_prefix="app/data/",
             raw_prefix="app/data/raw/",
             processed_prefix="app/data/processed/",
-            features_prefix="app/data/features/",
             serving_prefix="app/data/serving/",
             training_prefix="app/data/training/",
             model_prefix="app/models/",
@@ -133,7 +132,7 @@ class AWSInfrastructureTests(unittest.TestCase):
         )
 
         self.assertEqual(s3_client.head_calls, 1)
-        self.assertEqual(len(s3_client.prefixes), 9)
+        self.assertEqual(len(s3_client.prefixes), 8)
 
     def test_rejects_deployed_key_schema_mismatch(self) -> None:
         clients, _ = self.make_clients()

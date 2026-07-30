@@ -15,7 +15,6 @@ from app.core.config_validation import (
     validate_aws_region,
     validate_cors_origins,
     validate_http_url,
-    validate_iam_role_arn,
     validate_jwt_algorithm,
     validate_jwt_secret,
     validate_log_level,
@@ -86,7 +85,6 @@ class S3Settings:
     dataset_prefix: str
     raw_prefix: str
     processed_prefix: str
-    features_prefix: str
     serving_prefix: str
     training_prefix: str
     model_prefix: str
@@ -97,11 +95,7 @@ class S3Settings:
 @dataclass(frozen=True)
 class SageMakerSettings:
     enabled: bool
-    training_job_name_prefix: str | None
     endpoint_name: str | None
-    model_name: str | None
-    execution_role: str | None
-    instance_type: str | None
     content_type: str
     accept: str
     recommendation_limit: int
@@ -117,7 +111,6 @@ class LoggingSettings:
 @dataclass(frozen=True)
 class CacheSettings:
     ttl_seconds: int
-    scenario: str
     model_version: str
 
 
@@ -386,14 +379,6 @@ class Settings:
                     name="AWS_S3_PROCESSED_PREFIX",
                     required=True,
                 )),
-                features_prefix=str(validate_s3_prefix(
-                    environment_value(
-                        "AWS_S3_FEATURES_PREFIX",
-                        required=True,
-                    ),
-                    name="AWS_S3_FEATURES_PREFIX",
-                    required=True,
-                )),
                 serving_prefix=str(validate_s3_prefix(
                     environment_value(
                         "AWS_S3_SERVING_PREFIX",
@@ -437,23 +422,7 @@ class Settings:
             ),
             sagemaker=SageMakerSettings(
                 enabled=sagemaker_enabled,
-                training_job_name_prefix=validate_sagemaker_resource_name(
-                    environment_value(
-                        "AWS_SAGEMAKER_TRAINING_JOB_NAME_PREFIX"
-                    ),
-                    name="AWS_SAGEMAKER_TRAINING_JOB_NAME_PREFIX",
-                ),
                 endpoint_name=sagemaker_endpoint_name,
-                model_name=validate_sagemaker_resource_name(
-                    environment_value("AWS_SAGEMAKER_MODEL_NAME"),
-                    name="AWS_SAGEMAKER_MODEL_NAME",
-                ),
-                execution_role=validate_iam_role_arn(
-                    environment_value("AWS_SAGEMAKER_EXECUTION_ROLE")
-                ),
-                instance_type=environment_value(
-                    "AWS_SAGEMAKER_INSTANCE_TYPE"
-                ),
                 content_type=str(
                     environment_value(
                         "AWS_SAGEMAKER_CONTENT_TYPE",
@@ -497,12 +466,6 @@ class Settings:
                     "RECOMMENDATION_CACHE_TTL_SECONDS",
                     default=300,
                     minimum=1,
-                ),
-                scenario=str(
-                    environment_value(
-                        "RECOMMENDATION_CACHE_SCENARIO",
-                        default="default",
-                    )
                 ),
                 model_version=str(
                     environment_value(

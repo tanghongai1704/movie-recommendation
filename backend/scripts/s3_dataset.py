@@ -26,7 +26,8 @@ def configured_prefixes() -> dict[str, str]:
         "dataset": settings.s3.dataset_prefix,
         "raw": settings.s3.raw_prefix,
         "processed": settings.s3.processed_prefix,
-        "features": settings.s3.features_prefix,
+        # Feature files share datasets/processed/ in the canonical bucket.
+        "features": settings.s3.processed_prefix,
         "serving": settings.s3.serving_prefix,
         "training": settings.s3.training_prefix,
         "models": settings.s3.model_prefix,
