@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import ValidationError
 
-from app.models.movie import Movie
+from app.models.movie import MISSING_OVERVIEW_TEXT, Movie
 from app.models.popular_movie import PopularMovie
 from app.models.recommendation_cache import (
     RecommendationCache,
@@ -42,6 +42,30 @@ class DomainModelTests(unittest.TestCase):
         self.assertEqual(movie.movie_id, "1")
         with self.assertRaises(ValidationError):
             Movie.model_validate({**movie.model_dump(), "id": 1})
+
+    def test_movie_normalizes_null_overview_without_changing_contract(
+        self,
+    ) -> None:
+        movie = Movie(
+            movie_id="1",
+            title="Example",
+            release_year=2026,
+            genres=["Drama"],
+            overview=None,
+            poster_path="/poster.jpg",
+            vote_average=8.0,
+            vote_count=10,
+            popularity=12.5,
+            runtime=None,
+            original_language="en",
+            companies=["Example Studio"],
+            countries=["Vietnam"],
+            actors=["Example Actor"],
+            directors=["Example Director"],
+        )
+
+        self.assertEqual(movie.overview, MISSING_OVERVIEW_TEXT)
+        self.assertIsInstance(movie.overview, str)
 
     def test_popular_list_contains_only_ranked_movie_references(self) -> None:
         generated_at = datetime.now(timezone.utc)

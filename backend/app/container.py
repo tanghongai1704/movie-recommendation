@@ -97,6 +97,7 @@ recommendation_service = RecommendationService(
     movie_repository=movies_repository,
     users=users_repository,
     interactions=user_interactions_repository,
+    fallback_movies=popular_movie_service,
     cache_ttl_seconds=settings.cache.ttl_seconds,
     model_version=settings.cache.model_version,
 )

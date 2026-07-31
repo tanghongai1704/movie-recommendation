@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from app.models.movie import Movie
+from app.models.movie import MISSING_OVERVIEW_TEXT, Movie
 from app.models.popular_movie import PopularMovie
 from app.models.recommendation_cache import (
     RecommendationCache,
@@ -224,6 +224,25 @@ class DynamoDBRepositoryTests(unittest.TestCase):
 
         self.assertEqual(movies, [second, first])
         self.assertEqual(batch_reader.calls, 1)
+
+    def test_movies_repository_reads_null_overview_without_writing_data(
+        self,
+    ) -> None:
+        table = FakeDynamoDBTable()
+        raw_movie = self.make_movie().model_dump()
+        raw_movie["overview"] = None
+        table.items.append(raw_movie)
+        repository = MoviesRepository(
+            table_name="movies-test",
+            region_name="test-region",
+            table=table,
+        )
+
+        movie = repository.get("movie-1")
+
+        self.assertIsNotNone(movie)
+        self.assertEqual(movie.overview, MISSING_OVERVIEW_TEXT)
+        self.assertIsNone(table.items[0]["overview"])
 
     def test_popular_movies_repository_crud(self) -> None:
         repository = PopularMoviesRepository(

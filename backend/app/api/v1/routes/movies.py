@@ -34,6 +34,7 @@ def list_movies(
 @router.get("/recommend/{user_id}", response_model=RecommendationResponse)
 def get_recommendations(
     user_id: str,
+    limit: int = Query(default=10, ge=1, le=50),
     user: User = Depends(require_completed_onboarding),
 ) -> RecommendationResponse:
     if user_id != user.user_id:
@@ -44,7 +45,7 @@ def get_recommendations(
     try:
         return movie_service.get_recommendation_payload(
             user_id=user.user_id,
-            limit=10,
+            limit=limit,
         )
     except ValueError as exc:
         raise HTTPException(

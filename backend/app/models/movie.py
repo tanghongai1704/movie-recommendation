@@ -1,4 +1,9 @@
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+MISSING_OVERVIEW_TEXT = "Overview unavailable."
 
 
 class Movie(BaseModel):
@@ -21,3 +26,10 @@ class Movie(BaseModel):
     countries: list[str]  # Production country names embedded with movie metadata.
     actors: list[str]  # Actor names embedded for display and feature generation.
     directors: list[str]  # Director names embedded for display and feature generation.
+
+    @field_validator("overview", mode="before")
+    @classmethod
+    def normalize_missing_overview(cls, value: Any) -> Any:
+        """Keep the API string contract when deployed records contain null."""
+
+        return MISSING_OVERVIEW_TEXT if value is None else value

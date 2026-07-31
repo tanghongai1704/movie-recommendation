@@ -26,6 +26,7 @@ from app.services.recommendation_service import (
     MAX_MODEL_USER_ID,
     SCENARIO_ONBOARDING,
     SCENARIO_RETURNING,
+    RecommendationFallbackMovieSource,
     RecommendationService,
 )
 
@@ -136,6 +137,14 @@ class StaticInteractionStore:
         return self.interactions
 
 
+class StaticFallbackMovieSource(RecommendationFallbackMovieSource):
+    def __init__(self, movies: list[Movie]) -> None:
+        self.movies = movies
+
+    def get_movies(self, *, limit: int) -> list[Movie]:
+        return self.movies[:limit]
+
+
 class CountingRecommendationProvider(RecommendationProvider):
     def __init__(self) -> None:
         self.calls = 0
@@ -193,6 +202,7 @@ class RecommendationServiceTests(unittest.TestCase):
         stored_interactions: list[StoredUserInteraction] | None = None,
         cache: TestRecommendationCache | None = None,
         repository: StaticMovieRepository | None = None,
+        fallback_movies: RecommendationFallbackMovieSource | None = None,
         now: float = 1_000.0,
     ) -> tuple[
         RecommendationService,
@@ -210,6 +220,7 @@ class RecommendationServiceTests(unittest.TestCase):
             movie_repository=repository,
             users=StaticUserStore(),
             interactions=interactions,
+            fallback_movies=fallback_movies,
             cache_ttl_seconds=60,
             model_version="endpoint-unversioned",
             clock=lambda: now,
@@ -329,6 +340,30 @@ class RecommendationServiceTests(unittest.TestCase):
         movies = service.get_recommendations(user_id="42")
 
         self.assertEqual([item.movie_id for item in movies], ["1", "3"])
+
+    def test_short_model_result_is_completed_with_popular_fallback(
+        self,
+    ) -> None:
+        repository = StaticMovieRepository(missing_ids={"2"})
+        fourth = repository.movies[0].model_copy(
+            update={"movie_id": "4", "title": "Fallback movie"}
+        )
+        fallback = StaticFallbackMovieSource(
+            [repository.movies[0], fourth]
+        )
+        service, _, _, _ = self.make_service(
+            repository=repository,
+            fallback_movies=fallback,
+        )
+
+        movies = service.get_recommendations(user_id="42", limit=3)
+
+        self.assertEqual([item.movie_id for item in movies], ["1", "3", "4"])
+        self.assertEqual(getattr(movies[-1], "score"), 0.0)
+        self.assertEqual(
+            getattr(movies[-1], "reason_code"),
+            "popular_fallback",
+        )
 
     def test_no_resolvable_movie_ids_is_a_provider_response_error(self) -> None:
         repository = StaticMovieRepository(missing_ids={"1", "2", "3"})

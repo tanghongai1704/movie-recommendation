@@ -9,6 +9,8 @@ interface HomePageProps {
     movies: Movie[];
     moviesLoading: boolean;
     moviesError: string | null;
+    movieSectionTitle: string;
+    recommendationNotice: string | null;
     interactionError: string | null;
     onHome: () => void;
     onSignIn: () => void;
@@ -37,6 +39,8 @@ function HomePage({
     movies,
     moviesLoading,
     moviesError,
+    movieSectionTitle,
+    recommendationNotice,
     interactionError,
     onHome,
     onSignIn,
@@ -134,6 +138,12 @@ function HomePage({
                         </div>
                     )}
 
+                    {recommendationNotice && (
+                        <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+                            {recommendationNotice}
+                        </div>
+                    )}
+
                     {moviesLoading ? (
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             {[1, 2, 3].map((item) => (
@@ -150,7 +160,7 @@ function HomePage({
                         </div>
                     ) : (
                         <MovieSection
-                            title={isGuest ? 'Popular Now' : 'Movies for you'}
+                            title={movieSectionTitle}
                             movies={movies}
                             fallbackImage={featuredMovie.image}
                             onMovieClick={onMovieClick}

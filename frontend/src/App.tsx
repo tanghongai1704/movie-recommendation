@@ -12,6 +12,7 @@ import { useRegisterForm } from './features/auth/useRegisterForm';
 import { useMovieActions } from './features/interactions/useMovieActions';
 import { useMovieDetail } from './features/movies/useMovieDetail';
 import { useMovies } from './features/movies/useMovies';
+import { useHomeMovies } from './features/recommendations/useHomeMovies';
 
 function App() {
     const auth = useAuth();
@@ -24,6 +25,14 @@ function App() {
     const registerForm = useRegisterForm(auth.register);
     const movieActions = useMovieActions(auth.userState, navigate);
     const authReady = auth.status !== 'idle' && auth.status !== 'loading';
+    const homeMovies = useHomeMovies({
+        enabled: route === 'home',
+        userState: auth.userState,
+        userId: auth.user?.user_id || null,
+        catalogMovies: movies.movies,
+        catalogLoading: movies.isLoading,
+        catalogError: movies.error,
+    });
 
     useAuthRouting(auth.userState, authReady, route, navigate);
 
@@ -121,9 +130,11 @@ function App() {
         <HomePage
             userState={auth.userState}
             username={auth.user?.username || null}
-            movies={movies.movies}
-            moviesLoading={movies.isLoading}
-            moviesError={movies.error}
+            movies={homeMovies.movies}
+            moviesLoading={homeMovies.isLoading}
+            moviesError={homeMovies.error}
+            movieSectionTitle={homeMovies.sectionTitle}
+            recommendationNotice={homeMovies.fallbackNotice}
             interactionError={movieActions.error}
             onHome={() => navigate('home')}
             onSignIn={() => navigate('login')}

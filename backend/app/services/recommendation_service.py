@@ -24,6 +24,7 @@ from app.schemas.sagemaker import (
     SageMakerInteraction,
     SageMakerRecommendationRequest,
 )
+from app.services.popular_movie_service import PopularMoviesNotFoundError
 from app.services.recommendation_provider import (
     ProviderRecommendationItem,
     RecommendationProvider,
@@ -66,6 +67,11 @@ class RecommendationInteractionStore(Protocol):
         ...
 
 
+class RecommendationFallbackMovieSource(Protocol):
+    def get_movies(self, *, limit: int) -> list[MovieResponse]:
+        ...
+
+
 class CachedRecommendationMovie(MovieResponse):
     """Movie metadata enriched with fields stored in RecommendationCache.items."""
 
@@ -83,6 +89,7 @@ class RecommendationService:
         movie_repository: MovieRepository,
         users: RecommendationUserStore,
         interactions: RecommendationInteractionStore,
+        fallback_movies: RecommendationFallbackMovieSource | None = None,
         *,
         cache_ttl_seconds: int,
         model_version: str,
@@ -96,6 +103,7 @@ class RecommendationService:
         self._movie_repository = movie_repository
         self._users = users
         self._interactions = interactions
+        self._fallback_movies = fallback_movies
         self._cache_ttl_seconds = cache_ttl_seconds
         self._model_version = model_version
         self._clock = clock
@@ -127,7 +135,7 @@ class RecommendationService:
                 user_id,
                 SCENARIO_RETURNING,
             )
-            return cached[:limit]
+            return self._fill_with_fallback(cached, limit=limit)
 
         stored_interactions = self._interactions.list_by_user(user_id)
         model_interactions = self._normalize_interactions(
@@ -154,7 +162,7 @@ class RecommendationService:
                     user_id,
                     scenario,
                 )
-                return cached[:limit]
+                return self._fill_with_fallback(cached, limit=limit)
 
         logger.info(
             "Recommendation cache miss user_id=%s scenario=%s",
@@ -182,13 +190,18 @@ class RecommendationService:
         )
         provider_result = self._provider.get_recommendations(request)
         movies = self._enrich_provider_items(provider_result.items)
+        movies = self._fill_with_fallback(movies, limit=limit)
+        if not movies:
+            raise RecommendationProviderResponseError(
+                "Recommendation IDs do not resolve to Movies records"
+            )
         self._save_to_cache(
             user_id=user_id,
             scenario=scenario,
             movies=movies,
             model_version=provider_result.model_version,
         )
-        return movies[:limit]
+        return movies
 
     def get_recommendation_payload(
         self,
@@ -316,11 +329,48 @@ class RecommendationService:
             for item in items
             if item.movie_id in movies_by_id
         ]
-        if not enriched:
-            raise RecommendationProviderResponseError(
-                "Recommendation IDs do not resolve to Movies records"
-            )
         return enriched
+
+    def _fill_with_fallback(
+        self,
+        movies: list[MovieResponse],
+        *,
+        limit: int,
+    ) -> list[MovieResponse]:
+        """Complete a short model result with ranked popular movies."""
+
+        completed = list(movies[:limit])
+        if len(completed) >= limit or self._fallback_movies is None:
+            return completed
+
+        try:
+            fallback_movies = self._fallback_movies.get_movies(limit=limit)
+        except (
+            DynamoDBRepositoryError,
+            PopularMoviesNotFoundError,
+            ValueError,
+        ) as exc:
+            logger.warning(
+                "Recommendation fallback failed error_type=%s",
+                type(exc).__name__,
+            )
+            return completed
+
+        seen_ids = {movie.movie_id for movie in completed}
+        for movie in fallback_movies:
+            if movie.movie_id in seen_ids:
+                continue
+            completed.append(
+                RecommendationItem(
+                    **movie.model_dump(),
+                    score=0.0,
+                    reason_code="popular_fallback",
+                )
+            )
+            seen_ids.add(movie.movie_id)
+            if len(completed) >= limit:
+                break
+        return completed
 
     @classmethod
     def _normalize_interactions(
