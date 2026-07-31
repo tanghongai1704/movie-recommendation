@@ -94,7 +94,7 @@ frontend/coverage/
 *.csr
 credentials
 credential
-config
+# config
 
 authorization
 
