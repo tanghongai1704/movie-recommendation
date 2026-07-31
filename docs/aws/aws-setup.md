@@ -33,26 +33,26 @@ to create the selected training or processing job.
 Scope policies to the real table and bucket ARNs. Do not use `Resource: "*"`
 in production and never store access keys in git.
 
-## 2. Configure AWS CLI
+## 2. Configure AWS credentials
 
-IAM Identity Center:
+For local Docker, place the IAM credentials only in the untracked `.env`:
 
-```bash
-aws configure sso
-aws sso login --profile <profile>
-aws sts get-caller-identity --profile <profile>
+```env
+AWS_ACCESS_KEY_ID=<temporary-access-key>
+AWS_SECRET_ACCESS_KEY=<temporary-secret-key>
+AWS_SESSION_TOKEN=<required-for-temporary-credentials>
 ```
 
-Temporary credentials:
+For EC2 or ECS, leave all three values blank and attach an IAM role to the
+instance or task. Compose does not mount a host AWS configuration directory,
+so the setup behaves the same on Windows, macOS and Linux.
+
+After Compose is configured, verify the identity without printing credentials:
 
 ```bash
-aws configure
-aws sts get-caller-identity
+docker compose run --rm backend python -c \
+  "import boto3; print(boto3.client('sts').get_caller_identity()['Arn'])"
 ```
-
-Set `AWS_PROFILE` for native processes. Docker can receive temporary
-credentials through the untracked `.env`; when using SSO, mount the host AWS
-configuration directory read-only or run on infrastructure with an IAM role.
 
 ## 3. Verify or create DynamoDB tables
 

@@ -27,14 +27,9 @@ class AWSClients:
 
 
 def create_aws_session(settings: Settings) -> Any:
-    """Create one boto3 Session using profile or the default provider chain."""
+    """Create one boto3 Session using environment credentials or an IAM role."""
 
-    session_options: dict[str, Any] = {
-        "region_name": settings.aws.region,
-    }
-    if settings.aws.profile:
-        session_options["profile_name"] = settings.aws.profile
-    return boto3.Session(**session_options)
+    return boto3.Session(region_name=settings.aws.region)
 
 
 def create_aws_clients(

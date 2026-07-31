@@ -64,7 +64,6 @@ class ConfigurationTests(unittest.TestCase):
         environment = self.canonical_environment()
         environment.update(
             {
-                "AWS_PROFILE": "",
                 "AWS_ACCESS_KEY_ID": "",
                 "AWS_SECRET_ACCESS_KEY": "",
                 "AWS_SESSION_TOKEN": "",
@@ -77,13 +76,11 @@ class ConfigurationTests(unittest.TestCase):
             session.return_value.get_credentials.return_value = object()
             with patch.dict(os.environ, environment, clear=True):
                 settings = Settings.from_environment()
-                self.assertNotIn("AWS_PROFILE", os.environ)
                 self.assertNotIn("AWS_ACCESS_KEY_ID", os.environ)
                 self.assertNotIn("AWS_SECRET_ACCESS_KEY", os.environ)
                 self.assertNotIn("AWS_SESSION_TOKEN", os.environ)
                 self.assertNotIn("AWS_ENDPOINT_URL", os.environ)
 
-        self.assertIsNone(settings.aws.profile)
         self.assertIsNone(settings.aws.endpoint_url)
 
     def test_supports_legacy_environment_names_during_migration(self) -> None:
@@ -173,6 +170,22 @@ class ConfigurationTests(unittest.TestCase):
                         message,
                     ):
                         Settings.from_environment()
+
+    def test_rejects_incomplete_explicit_aws_credentials(self) -> None:
+        environment = self.canonical_environment()
+        environment.update(
+            {
+                "AWS_ACCESS_KEY_ID": "A" * 20,
+                "AWS_SECRET_ACCESS_KEY": "short-secret",
+            }
+        )
+
+        with patch.dict(os.environ, environment, clear=True):
+            with self.assertRaisesRegex(
+                ConfigurationError,
+                "complete 40-character",
+            ):
+                Settings.from_environment()
 
     def test_sagemaker_endpoint_is_required_only_when_enabled(self) -> None:
         environment = self.canonical_environment()

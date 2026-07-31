@@ -21,22 +21,16 @@ git submodule update --init --recursive
 
 ## 3. Configure AWS identity
 
-Developer workstation:
-
-```bash
-aws sso login --profile <profile>
-aws sts get-caller-identity --profile <profile>
-```
-
-EC2/ECS should use an instance/task role:
+Developer workstations provide temporary IAM credentials through the
+untracked `.env`. EC2/ECS should leave those values blank and use an
+instance/task role:
 
 ```bash
 aws sts get-caller-identity
 ```
 
-Do not copy permanent access keys to a server. For Docker on a workstation,
-either use temporary values in untracked `.env` or mount the AWS profile
-directory read-only through a local Compose override.
+Do not copy permanent access keys to a server. Compose never mounts a
+host-specific AWS configuration directory.
 
 ## 4. Configure environment
 

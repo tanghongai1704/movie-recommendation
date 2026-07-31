@@ -43,7 +43,6 @@ are actually used.
 |---|---|---|---|---|---|---|
 | `AWS_REGION` | Canonical AWS Region | All AWS | Yes | `ap-southeast-1` | backend and ML | `aws configure get region` |
 | `AWS_DEFAULT_REGION` | CLI/SDK alias; must match | All AWS | No | same as region | AWS tooling | STS command |
-| `AWS_PROFILE` | Local SSO/profile name | IAM/STS | No | `project-dev` | boto3/CLI | `aws sts get-caller-identity` |
 | `AWS_ACCESS_KEY_ID` | Temporary local access key | IAM | No | secret | SDK chain | STS command |
 | `AWS_SECRET_ACCESS_KEY` | Temporary local secret key | IAM | No | secret | SDK chain | STS command |
 | `AWS_SESSION_TOKEN` | Temporary session token | IAM | No | secret | SDK chain | STS command |
@@ -55,7 +54,8 @@ are actually used.
 | `AWS_MAX_ATTEMPTS` | SDK and BatchGet attempts | AWS SDK | No | `3` | botocore/repository | config test |
 | `AWS_RETRY_MODE` | SDK retry strategy | AWS SDK | No | `standard` | botocore | config test |
 
-Prefer IAM roles or SSO. Never commit the three explicit credential values.
+Prefer IAM roles on AWS-hosted workloads. Never commit the three explicit
+credential values.
 `.env.example` keeps the complete blank placeholders for discoverability; the
 backend removes blank optional AWS variables before boto3 resolves its default
 credential chain.

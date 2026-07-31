@@ -84,12 +84,10 @@ Open `.env` and review the following required settings:
 
 3. Choose exactly one AWS credential method:
 
-   - local AWS profile or SSO: set `AWS_PROFILE` and leave the access-key fields
-     blank;
-   - temporary credentials: fill `AWS_ACCESS_KEY_ID`,
+   - local Docker: fill `AWS_ACCESS_KEY_ID`,
      `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` when required;
-   - EC2/ECS IAM role: leave all profile and access-key fields blank so boto3
-     uses the workload role.
+   - EC2/ECS IAM role: leave all access-key fields blank so boto3 uses the
+     workload role.
 
 4. Verify the five DynamoDB table names and the existing PopularMovies
    `list_id`:
@@ -138,9 +136,9 @@ excludes it; verify with:
 git status --short
 ```
 
-For Docker on a developer workstation, Compose mounts the host `~/.aws`
-configuration read-only. On EC2/ECS, use an IAM role instead of copying
-long-lived credentials into `.env`.
+Docker does not mount operating-system-specific AWS configuration directories.
+Local credentials come only from the untracked `.env`. On EC2/ECS, leave those
+values blank and use an IAM role.
 
 The backend validates:
 

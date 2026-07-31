@@ -159,9 +159,8 @@ only the endpoint name and runtime media-type/limit settings.
 
 The client factory creates one `boto3.Session`:
 
-- non-empty `AWS_PROFILE`: use that profile;
-- empty profile: use boto3's default provider chain, including environment
-  credentials, shared credentials, container credentials, and IAM roles;
+- local Docker uses environment credentials from the untracked `.env`;
+- AWS-hosted containers use workload/container credentials and IAM roles;
 - empty credential values are never passed as SDK credentials;
 - `AWS_ENDPOINT_URL` is passed only when non-empty for local/test endpoints.
 
@@ -171,14 +170,10 @@ Check local identity without exposing credentials:
 aws sts get-caller-identity --region "$AWS_REGION"
 ```
 
-For Docker Desktop on Windows, choose one:
-
-1. use temporary credentials in the untracked `.env`; or
-2. create a local Compose override that mounts the host AWS directory
-   read-only to `/root/.aws` and set `AWS_PROFILE`.
-
-Do not hardcode a Windows home path in the committed Compose file. AWS-hosted
-containers should use an IAM task/instance role.
+Docker Desktop uses temporary environment credentials from the untracked
+`.env` on every operating system. No host home directory is mounted.
+AWS-hosted containers should leave those variables blank and use an IAM
+task/instance role.
 
 ## Endpoint diagnostics
 

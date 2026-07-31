@@ -60,7 +60,6 @@ class AuthenticationSettings:
 @dataclass(frozen=True)
 class AWSSettings:
     region: str
-    profile: str | None
     endpoint_url: str | None
     connect_timeout_seconds: int
     read_timeout_seconds: int
@@ -292,7 +291,6 @@ class Settings:
             ),
             aws=AWSSettings(
                 region=region,
-                profile=environment_value("AWS_PROFILE"),
                 endpoint_url=endpoint_url,
                 connect_timeout_seconds=integer_value(
                     "AWS_CONNECT_TIMEOUT_SECONDS",

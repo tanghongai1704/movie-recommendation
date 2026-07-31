@@ -38,9 +38,6 @@ services:
     volumes:
       - ./backend:/app
       - backend_cache:/root/.cache/pip
-      # AWS_PROFILE is resolved from the host CLI configuration without
-      # copying long-lived access keys into the project.
-      - "${USERPROFILE}/.aws:/root/.aws:ro"
     env_file:
       - ${ENV_FILE:-.env}
     environment:

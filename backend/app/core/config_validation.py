@@ -16,13 +16,11 @@ def normalize_blank_aws_sdk_environment() -> None:
     """Remove blank optional AWS variables before boto3 reads its environment.
 
     Environment templates deliberately list these variables for discoverability.
-    Botocore treats an empty ``AWS_PROFILE`` as an actual profile name instead
-    of falling back to its default credential chain, so blank placeholders must
-    be made equivalent to variables that were not declared.
+    Blank credential placeholders must be equivalent to variables that were not
+    declared so IAM roles and workload identity can resolve normally.
     """
 
     for name in (
-        "AWS_PROFILE",
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",
         "AWS_SESSION_TOKEN",
@@ -284,6 +282,14 @@ def validate_aws_credentials(*, enabled: bool) -> None:
             "AWS_SESSION_TOKEN requires AWS_ACCESS_KEY_ID and "
             "AWS_SECRET_ACCESS_KEY"
         )
+    if access_key and len(access_key) != 20:
+        raise ConfigurationError(
+            "AWS_ACCESS_KEY_ID must be a complete 20-character IAM access key"
+        )
+    if secret_key and len(secret_key) != 40:
+        raise ConfigurationError(
+            "AWS_SECRET_ACCESS_KEY must be a complete 40-character IAM secret"
+        )
     if not enabled or (access_key and secret_key):
         return
 
@@ -298,5 +304,5 @@ def validate_aws_credentials(*, enabled: bool) -> None:
     if credentials is None:
         raise ConfigurationError(
             "AWS credentials are unavailable. Use an IAM role, workload "
-            "identity, AWS SSO/AWS_PROFILE, or explicit local credentials."
+            "identity, or explicit environment credentials."
         )

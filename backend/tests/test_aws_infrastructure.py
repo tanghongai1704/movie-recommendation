@@ -73,7 +73,6 @@ def test_settings() -> SimpleNamespace:
     return SimpleNamespace(
         aws=SimpleNamespace(
             region="ap-southeast-1",
-            profile=None,
             endpoint_url=None,
             connect_timeout_seconds=3,
             read_timeout_seconds=10,
@@ -164,19 +163,7 @@ class AWSInfrastructureTests(unittest.TestCase):
         with self.assertLogs("movie_recommendation.aws", level="WARNING"):
             validate_aws_resources(settings=settings, clients=clients)
 
-    def test_session_uses_configured_profile(self) -> None:
-        settings = test_settings()
-        settings.aws.profile = "project-dev"
-
-        with patch("app.aws.infrastructure.boto3.Session") as session:
-            create_aws_session(settings)
-
-        session.assert_called_once_with(
-            region_name="ap-southeast-1",
-            profile_name="project-dev",
-        )
-
-    def test_session_uses_default_credential_chain_without_profile(self) -> None:
+    def test_session_uses_region_and_default_credential_chain(self) -> None:
         settings = test_settings()
 
         with patch("app.aws.infrastructure.boto3.Session") as session:
