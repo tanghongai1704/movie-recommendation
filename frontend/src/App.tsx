@@ -134,7 +134,6 @@ function App() {
                 navigateToMovie(selectedMovieId);
             }}
             onWatch={movieActions.canWatchMovie}
-            onRate={movieActions.rateMovie}
         />
     );
 }

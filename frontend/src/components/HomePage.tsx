@@ -16,7 +16,6 @@ interface HomePageProps {
     onLogout: () => Promise<void>;
     onMovieClick: (movieId: string) => void;
     onWatch: (movieId: string) => void;
-    onRate: (movieId: string, rating: number) => Promise<boolean>;
 }
 
 const featuredMovie = {
@@ -45,7 +44,6 @@ function HomePage({
     onLogout,
     onMovieClick,
     onWatch,
-    onRate,
 }: HomePageProps) {
     const isGuest = userState === 'guest';
 
@@ -89,20 +87,6 @@ function HomePage({
                             <p className="mt-6 text-lg leading-8 text-zinc-300 sm:text-xl">
                                 {featuredMovie.description}
                             </p>
-                            <div className="mt-8 flex flex-wrap gap-4">
-                                <button
-                                    onClick={() => onWatch(featuredMovie.id)}
-                                    className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-zinc-200"
-                                >
-                                    ▶ Play Now
-                                </button>
-                                <button
-                                    onClick={() => void onRate(featuredMovie.id, 5)}
-                                    className="rounded-full border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/20"
-                                >
-                                    ★ Rate 5
-                                </button>
-                            </div>
                             {isGuest && (
                                 <p className="mt-4 text-sm text-zinc-400">
                                     Browse freely. Sign in when you’re ready to watch or rate.
