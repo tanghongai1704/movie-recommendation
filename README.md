@@ -46,14 +46,101 @@ docker-compose.yml
 .env.example
 ```
 
-## Configuration
+## Create and configure `.env`
+
+The repository contains a safe configuration template at `.env.example`.
+Create a local `.env` from that template before starting the application.
+
+PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Command Prompt:
+
+```bat
+copy .env.example .env
+```
+
+macOS, Linux, or Git Bash:
 
 ```bash
 cp .env.example .env
 ```
 
-Fill the JWT secret, AWS identity/Region, five table names, popular list ID, S3
-bucket/prefixes and frontend URL. Keep `.env` untracked.
+Open `.env` and review the following required settings:
+
+1. Generate a JWT secret containing at least 32 random bytes:
+
+   ```bash
+   python -c "import secrets; print(secrets.token_urlsafe(48))"
+   ```
+
+   Paste the generated value into `JWT_SECRET_KEY`. Generate a different secret
+   for every environment.
+
+2. Set `AWS_REGION` and `AWS_DEFAULT_REGION` to the same AWS Region.
+
+3. Choose exactly one AWS credential method:
+
+   - local AWS profile or SSO: set `AWS_PROFILE` and leave the access-key fields
+     blank;
+   - temporary credentials: fill `AWS_ACCESS_KEY_ID`,
+     `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` when required;
+   - EC2/ECS IAM role: leave all profile and access-key fields blank so boto3
+     uses the workload role.
+
+4. Verify the five DynamoDB table names and the existing PopularMovies
+   `list_id`:
+
+   - `AWS_DYNAMODB_MOVIES_TABLE`
+   - `AWS_DYNAMODB_POPULAR_TABLE`
+   - `AWS_DYNAMODB_USERS_TABLE`
+   - `AWS_DYNAMODB_INTERACTIONS_TABLE`
+   - `AWS_DYNAMODB_RECOMMENDATION_CACHE_TABLE`
+   - `AWS_DYNAMODB_POPULAR_LIST_ID`
+
+5. Verify `AWS_S3_BUCKET` and every configured S3 prefix.
+
+6. Configure SageMaker:
+
+   - when a compatible endpoint exists, set `AWS_SAGEMAKER_ENABLED=True` and
+     provide `AWS_SAGEMAKER_ENDPOINT_NAME`;
+   - when it is unavailable, set `AWS_SAGEMAKER_ENABLED=False` and leave the
+     endpoint name blank. Guest browsing remains available, while personalized
+     cache misses return a controlled service-unavailable response.
+
+7. Verify `VITE_API_URL`, `VITE_TMDB_POSTER_BASE_URL`, CORS origins, and the
+   frontend/backend ports.
+
+Check the selected AWS identity without printing credentials:
+
+```bash
+aws sts get-caller-identity --region "<AWS_REGION>"
+```
+
+Validate the Compose configuration before building:
+
+```bash
+docker compose config --quiet
+```
+
+The command should exit without output. The backend then validates the AWS
+identity, all five DynamoDB table states and key schemas, S3 access, and the
+optional SageMaker endpoint health during startup.
+
+Never commit `.env`. It may contain JWT secrets, temporary AWS credentials,
+account-specific resource names, and private endpoints. `.gitignore` already
+excludes it; verify with:
+
+```bash
+git status --short
+```
+
+For Docker on a developer workstation, Compose mounts the host `~/.aws`
+configuration read-only. On EC2/ECS, use an IAM role instead of copying
+long-lived credentials into `.env`.
 
 The backend validates:
 
