@@ -44,7 +44,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install backend dependencies
         working-directory: backend
@@ -62,15 +62,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: SSH to EC2 and run compose deployment
+      - name: Deploy application to EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            test -n "${{ vars.EC2_APP_DIR }}"
+            set -e
+
+            echo "Go to project directory..."
             cd "${{ vars.EC2_APP_DIR }}"
-            git pull origin main
-            docker compose pull
-            docker compose up -d
+
+            echo "Current branch:"
+            git branch
+
+            echo "Fetch latest source..."
+            git fetch origin
+
+            echo "Reset to latest main..."
+            git reset --hard origin/main
+
+            echo "Build and restart containers..."
+            docker compose up -d --build
+
+            echo "Running containers:"
+            docker compose ps
+
+            echo "Deployment completed successfully."
