@@ -56,41 +56,35 @@ jobs:
         working-directory: backend
         run: python -m compileall app
 
-  # deploy-ec2:
-  #   name: Deploy to EC2
-  #   needs: [build-frontend, build-backend]
-  #   runs-on: ubuntu-latest
-
-  #   steps:
-  #     - name: Check SSH key
-  #       run: |
-  #         echo "${{ secrets.EC2_SSH_KEY }}" | head -1
-  #     - name: SSH to EC2 and run compose deployment
-  #       uses: appleboy/ssh-action@v1.0.0
-  #       with:
-  #         host: ${{ secrets.EC2_HOST }}
-  #         username: ${{ secrets.EC2_USER }}
-  #         key: ${{ secrets.EC2_SSH_KEY }}
-  #         script: |
-  #           test -n "${{ vars.EC2_APP_DIR }}"
-  #           cd "${{ vars.EC2_APP_DIR }}"
-  #           git pull origin main
-  #           docker compose pull
-  #           docker compose up -d
-
   deploy-ec2:
     name: Deploy to EC2
     needs: [build-frontend, build-backend]
     runs-on: ubuntu-latest
+
     steps:
-      - name: SSH to EC2 and run compose deployment
-        uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd ${{ env.EC2_APP_DIR }}
-            git pull origin main
-            docker compose pull
-            docker compose up -d
+            set -e
+
+            echo "Go to project directory..."
+            cd "${{ vars.EC2_APP_DIR }}"
+
+            echo "Current branch:"
+            git branch
+
+            echo "Fetch latest source..."
+            git fetch origin
+
+            echo "Reset to latest main..."
+            git reset --hard origin/main
+
+            echo "Build and restart containers..."
+            docker compose up -d --build
+
+            echo "Running containers:"
+            docker compose ps
+
+            echo "Deployment completed successfully."
